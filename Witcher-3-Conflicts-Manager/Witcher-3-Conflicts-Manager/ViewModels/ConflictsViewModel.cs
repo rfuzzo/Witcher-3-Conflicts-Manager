@@ -18,7 +18,7 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
     {
         public ConflictsViewModel()
         {
-            ConflictsList = new ObservableCollection<BundleConflict>();
+            ConflictsList = new ObservableCollection<IConflictViewModel>();
 
             PatchCommand = new RelayCommand(Patch, CanPatch);
 
@@ -35,11 +35,11 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
 
         #region Properties
         public MainViewModel ParentViewModel { get; set; }
-        public ObservableCollection<BundleConflict> ConflictsList { get; set; }
+        public ObservableCollection<IConflictViewModel> ConflictsList { get; set; }
 
        
-        private BundleConflict _selectedItem;
-        public BundleConflict SelectedItem
+        private IConflictViewModel _selectedItem;
+        public IConflictViewModel SelectedItem
         {
             get => _selectedItem;
             set
@@ -100,7 +100,7 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
             //cast to tw3conflict
             foreach (var c in allConflicts)
             {
-                BundleConflict tw3Conflict = new BundleConflict
+                IConflictViewModel tw3Conflict = new IConflictViewModel
                 {
                     Name = c.Key.Split('\\').Last(),
                     Category = c.Key.Split('\\').First(),

@@ -7,15 +7,23 @@ using WolvenKit.Common;
 
 namespace Witcher_3_Conflicts_Manager.Models
 {
-    public class IWitcherFileViewModel
+    using ViewModels;
+
+    public class IWitcherFileViewModel : ViewModel
     {
         public bool? IsChecked { get; set; }
         public IWitcherFile File { get; set; }
+
+        public override string ToString()
+        {
+            return File.Bundle.FileName;
+        }
+
     }
 
 
 
-    public class BundleConflict: ObservableObject
+    public class IConflictViewModel: ViewModel
     {
 
         private string _name;

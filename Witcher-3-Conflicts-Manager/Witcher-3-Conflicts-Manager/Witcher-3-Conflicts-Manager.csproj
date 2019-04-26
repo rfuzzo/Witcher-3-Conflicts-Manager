@@ -173,14 +173,22 @@
     <Resource Include="Resources\Icons\StatusHelp_16x.png" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="F:\git\Wolven-kit\WolvenKit.Bundles\WolvenKit.Bundles.csproj">
+    <ProjectReference Include="..\WolvenKit.Bundles\WolvenKit.Bundles.csproj">
       <Project>{5bd2292a-24db-4b4a-a5b1-5d435769c289}</Project>
       <Name>WolvenKit.Bundles</Name>
     </ProjectReference>
-    <ProjectReference Include="F:\git\Wolven-kit\WolvenKit.Common\WolvenKit.Common.csproj">
+    <ProjectReference Include="..\WolvenKit.Common\WolvenKit.Common.csproj">
       <Project>{4d1019f1-f099-450f-85b8-697e0332a94f}</Project>
       <Name>WolvenKit.Common</Name>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Resources\dll\WolvenKit.Bundles.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\dll\WolvenKit.Interfaces.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
