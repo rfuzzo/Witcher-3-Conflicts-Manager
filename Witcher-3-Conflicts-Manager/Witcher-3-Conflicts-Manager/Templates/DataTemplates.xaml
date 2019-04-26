@@ -1,0 +1,23 @@
+﻿<ResourceDictionary x:Class="Witcher_3_Conflicts_Manager.Templates.DataTemplates"
+                    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:vm="clr-namespace:Witcher_3_Conflicts_Manager.ViewModels" 
+                    xmlns:v="clr-namespace:Witcher_3_Conflicts_Manager.Views"
+                    xmlns:s="clr-namespace:System;assembly=mscorlib"
+                    >
+    
+    <DataTemplate DataType="{x:Type vm:ConflictsViewModel}">
+        <v:ConflictsView>
+            
+        </v:ConflictsView>
+    </DataTemplate>
+
+    <DataTemplate DataType="{x:Type vm:SettingsViewModel}">
+        <v:SettingsView>
+
+        </v:SettingsView>
+    </DataTemplate>
+
+
+
+</ResourceDictionary>

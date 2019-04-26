@@ -1,0 +1,83 @@
+﻿<UserControl x:Class="Witcher_3_Conflicts_Manager.Views.ConflictsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:Witcher_3_Conflicts_Manager.Views"
+             mc:Ignorable="d" 
+             d:DesignHeight="450" d:DesignWidth="800">
+    <Grid>
+        <Grid.RowDefinitions>
+            <!-- MainLayout -->
+            <RowDefinition Height="*"/>
+            <!-- MenuBar -->
+            <RowDefinition Height="auto"/>
+        </Grid.RowDefinitions>
+
+
+
+        <!-- Main Layout -->
+        <Grid Grid.Row="0" Margin="0,0,0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="40"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <ListView Grid.Column="0" 
+                      ItemsSource="{Binding ConflictsList, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                      SelectedItem="{Binding SelectedItem}"
+                      Background="Transparent"
+                      >
+
+
+            </ListView>
+
+            <ListView Grid.Column="2"
+                      ItemsSource="{Binding SelectedItem.Items, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                      Background="Transparent"
+                      >
+            </ListView>
+
+        </Grid>
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="auto"/>
+            </Grid.ColumnDefinitions>
+
+            <!--  Next Button  -->
+            <Button
+                Grid.Column="0"
+                Height="40"
+                Margin="40,0,0,30"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Bottom"
+                Command="{Binding PatchCommand}"
+            >
+                <Grid
+                    Margin="10,0,10,0"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Stretch">
+                    <TextBlock Style="{DynamicResource ButtonText}">
+                        PATCH
+                    </TextBlock>
+                </Grid>
+            </Button>
+
+            <Button Grid.Column="1" 
+                    Height="40"
+                    Margin="0,0,0,30"
+                    Background="Transparent" 
+                    BorderBrush="Transparent"
+                    >
+                <Image Source="/Resources/Icons/Settings_16x.png"/>
+
+            </Button>
+
+
+        </Grid>
+
+    </Grid>
+</UserControl>

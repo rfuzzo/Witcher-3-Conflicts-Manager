@@ -13,33 +13,16 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 
-namespace Witcher_3_Conflicts_Manager
+namespace Witcher_3_Conflicts_Manager.Views
 {
-    using System.ComponentModel;
-    using ViewModels;
-
-
     /// <summary>
-    /// Interaction logic for MainWindow.xaml
+    /// Interaction logic for SettingsView.xaml
     /// </summary>
-    public partial class MainWindow : Window
+    public partial class SettingsView : UserControl
     {
-        public MainWindow()
+        public SettingsView()
         {
             InitializeComponent();
-
-        }
-
-        
-        protected override void OnClosing(CancelEventArgs e)
-        {
-            base.OnClosing(e);
-        }
-       
-
-        private void Exit_Click(object sender, RoutedEventArgs e)
-        {
-            this.Close();
         }
     }
 }

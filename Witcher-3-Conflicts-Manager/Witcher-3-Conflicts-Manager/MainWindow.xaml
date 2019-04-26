@@ -4,9 +4,29 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:Witcher_3_Conflicts_Manager"
-        mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
-    <Grid>
         
+        xmlns:vm="clr-namespace:Witcher_3_Conflicts_Manager.ViewModels"
+        
+        mc:Ignorable="d"
+        Title="Witcher 3 Mod Conflicts Manager" 
+        Height="500" 
+        Width="400"
+        
+        Background="BlueViolet"
+        MinHeight="500"
+        MinWidth="400"
+        
+        >
+
+    <Window.DataContext>
+        <vm:MainViewModel />
+    </Window.DataContext>
+
+
+    <Grid>
+        <ContentControl Content="{Binding Content}"
+                        Margin="10,10,10,0"
+                        />
+
     </Grid>
 </Window>
