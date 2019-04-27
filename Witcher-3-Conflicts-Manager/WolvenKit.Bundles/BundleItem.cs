@@ -47,6 +47,62 @@ namespace WolvenKit.Bundles
             }
         }
 
+        public byte[] UncompressedData()
+        {
+            using (MemoryMappedFile file = MemoryMappedFile.CreateFromFile(Bundle.FileName, FileMode.Open))
+            {
+                using (MemoryMappedViewStream viewstream = file.CreateViewStream(PageOFfset, ZSize, MemoryMappedFileAccess.Read))
+                {
+                    switch (CompressionType)
+                    {
+                        case "None":
+                            {
+                                using (MemoryStream destination = new MemoryStream())
+                                {
+                                    viewstream.CopyTo(destination);
+                                    return destination.ToArray();
+                                }
+                            }
+                        case "Lz4":
+                            {
+                                var buffer = new byte[ZSize];
+                                var c = viewstream.Read(buffer, 0, buffer.Length);
+                                var uncompressed = LZ4Codec.Decode(buffer, 0, c, (int)Size);
+                                return uncompressed;
+                            }
+                        case "Snappy":
+                            {
+                                var buffer = new byte[ZSize];
+                                var c = viewstream.Read(buffer, 0, buffer.Length);
+                                var uncompressed = SnappyCodec.Uncompress(buffer);
+                                return uncompressed;
+                            }
+                        case "Doboz":
+                            {
+                                var buffer = new byte[ZSize];
+                                var c = viewstream.Read(buffer, 0, buffer.Length);
+                                var uncompressed = DobozCodec.Decode(buffer, 0, c);
+                                return uncompressed;
+                            }
+                        case "Zlib":
+                            {
+                                using (MemoryStream destination = new MemoryStream())
+                                {
+                                    var zlib = new ZlibStream(viewstream, CompressionMode.Decompress);
+                                    zlib.CopyTo(destination);
+                                    return destination.ToArray();
+                                }
+                            }
+                        default:
+                            throw new MissingCompressionException("Unhandled compression algorithm.")
+                            {
+                                Compression = Compression
+                            };
+                    }
+                }
+            }
+        }
+
         public void Extract(Stream output)
         {
             using (var file = MemoryMappedFile.CreateFromFile(Bundle.FileName, FileMode.Open))

@@ -80,10 +80,7 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
         }
         private void Next()
         {
-            ParentViewModel.Content = new ConflictsViewModel()
-            {
-                ParentViewModel = ParentViewModel
-            };
+            ParentViewModel.ShowConflicts();
         }
 
         public void LocateTW3()

@@ -20,12 +20,23 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
 
     public class MainViewModel : ViewModel
     {
-
+        public SettingsViewModel svm { get; set; }
+        public ConflictsViewModel cvm { get; set; }
 
         public MainViewModel()
         {
             //ConfigService = configService;
             //Logger = logger;
+
+            svm = new SettingsViewModel
+            {
+                ParentViewModel = this
+            };
+            cvm = new ConflictsViewModel
+            {
+                ParentViewModel = this
+            };
+
 
             //View Manager
             //FIXME
@@ -34,22 +45,12 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
                 !File.Exists(Properties.Settings.Default.WCC_Path) ||
                 !File.Exists(Properties.Settings.Default.TW3_Path)
                 )
-            {
-                Content = new SettingsViewModel()
-                {
-                    ParentViewModel = this
-                };
-            }
+                ShowSettings();
             else
-            {
-                Content = new ConflictsViewModel()
-                {
-                    ParentViewModel = this
-                };
-            }
+                ShowConflicts();
         }
 
-
+        
 
         #region Services
         //public IConfigService ConfigService { get; }
@@ -81,27 +82,28 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
 
 
         #region Command Implementation
-/*
+        /*
 
 
-        private bool CanStartGame()
-        {
-            return !String.IsNullOrEmpty(Config.GetConfigSetting("TW3_Path"));
+                private bool CanStartGame()
+                {
+                    return !String.IsNullOrEmpty(Config.GetConfigSetting("TW3_Path"));
 
-        }
-        private void StartGame()
-        {
-            Process.Start(Config.GetConfigSetting("TW3_Path"));
-        }
+                }
+                private void StartGame()
+                {
+                    Process.Start(Config.GetConfigSetting("TW3_Path"));
+                }
 
-        
 
-    */
+
+            */
         #endregion
         #endregion
 
         #region Methods
-
+        public void ShowSettings() => Content = svm;
+        public void ShowConflicts() => Content = cvm;
 
 
 

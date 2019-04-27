@@ -13,8 +13,8 @@
         Width="400"
         
         Background="BlueViolet"
-        MinHeight="500"
-        MinWidth="400"
+        MinHeight="600"
+        MinWidth="850"
         
         >
 
@@ -25,7 +25,7 @@
 
     <Grid>
         <ContentControl Content="{Binding Content}"
-                        Margin="10,10,10,0"
+                        Margin="20,20,20,10"
                         />
 
     </Grid>

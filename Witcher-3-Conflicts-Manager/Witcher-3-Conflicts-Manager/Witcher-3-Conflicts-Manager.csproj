@@ -64,7 +64,7 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
-    <Compile Include="Models\Tw3Conflict.cs" />
+    <Compile Include="Models\Wrappers.cs" />
     <Compile Include="Models\wccTask.cs" />
     <Compile Include="ObservableObject.cs" />
     <Compile Include="Services\ConfigService.cs" />
@@ -181,14 +181,6 @@
       <Project>{4d1019f1-f099-450f-85b8-697e0332a94f}</Project>
       <Name>WolvenKit.Common</Name>
     </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
-    <Content Include="Resources\dll\WolvenKit.Bundles.dll">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Resources\dll\WolvenKit.Interfaces.dll">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

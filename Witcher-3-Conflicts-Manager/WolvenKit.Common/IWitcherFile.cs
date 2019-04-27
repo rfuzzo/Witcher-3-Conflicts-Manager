@@ -14,9 +14,11 @@ namespace WolvenKit.Common
         long Size { get; set; }
         uint ZSize { get; set; }
         long PageOFfset { get; set; }
+        uint Compression { get; }
         string CompressionType { get; }
 
         void Extract(Stream output);
         void Extract(string filename);
+        byte[] UncompressedData();
     }
 }
