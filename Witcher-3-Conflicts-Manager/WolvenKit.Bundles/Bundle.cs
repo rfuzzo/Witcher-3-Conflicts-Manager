@@ -22,9 +22,13 @@ namespace WolvenKit.Bundles
         private static string FOOTER_DATA = "AlignmentUnused"; //The bundle's final filesize should be an even multiple of 16; garbage data should be appended at the end if necessary to make this happen [appears to be unnecessary/optional, as far as the game cares]
         private static int TOCEntrySize = 0x100 + 16 + 4 + 4 + 4 + 4 + 8 + 16 + 4 + 4; //Size of a TOC Entry.
 
-        private uint bundlesize;
+        private UInt16 bundlesize;
+        private UInt16 unk1;
         private uint dataoffset;
         private uint dummysize;
+
+        public uint DataBlockSize { get; set; }
+        public uint DataBlockOffset { get; set; }
 
         public Bundle(string filename)
         {
@@ -57,9 +61,13 @@ namespace WolvenKit.Bundles
                     throw new InvalidBundleException("Bundle header mismatch.");
                 }
 
-                bundlesize = reader.ReadUInt32();
+                bundlesize = reader.ReadUInt16(); //this seems to be a Uint16
+                unk1 = reader.ReadUInt16(); //2 bytes left over
                 dummysize = reader.ReadUInt32();
                 dataoffset = reader.ReadUInt32();
+
+                DataBlockOffset = dataoffset + (uint)HEADER_SIZE;
+                DataBlockSize = bundlesize - DataBlockOffset;
 
                 reader.BaseStream.Seek(0x20, SeekOrigin.Begin);
 
@@ -156,19 +164,21 @@ namespace WolvenKit.Bundles
                 offset = nextOffset;
             }
 
-            // Write ToC
+            
             using (var fs = new FileStream(Outputpath, FileMode.Create))
             using (var bw = new BinaryWriter(fs))
             {
                 var dummysize = 0; //May not need to be recomputed. TODO: Investigate
                 UInt32 bundleSize = (UInt32)(offset);    //last offset is the offset of the end of the last compressed file entry
 
+                // Write Header
                 bw.Write(IDString);
                 bw.Write(bundleSize); //TODO for buffers this is just 4095??
                 bw.Write(dummysize);
                 bw.Write(toCRealSize);
                 bw.Write(new byte[] { 0x03, 0x00, 0x01, 0x00, 0x00, 0x13, 0x13, 0x13, 0x13, 0x13, 0x13, 0x13 }); //TODO: Figure out what the hell is this.
 
+                // Write ToC
                 var minDataOffset = ALIGNMENT_TARGET;
                 for (int i = 0; i < BundleItems.Count; i++)
                 {

@@ -149,12 +149,19 @@
     <Compile Include="Bundle.cs" />
     <Compile Include="BundleItem.cs" />
     <Compile Include="BundleManager.cs" />
+    <Compile Include="FNV1a.cs" />
     <Compile Include="InvalidFileTypeException.cs" />
     <Compile Include="ISerializable.cs" />
     <Compile Include="Metadata_Store.cs" />
     <Compile Include="MissingCompressionException.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="TDynArray.cs" />
+    <Compile Include="Types\UBundleInfo.cs" />
+    <Compile Include="Types\UDirInitInfo.cs" />
+    <Compile Include="Types\UFileEntryInfo.cs" />
+    <Compile Include="Types\UFileInfo.cs" />
+    <Compile Include="Types\UFileInitInfo.cs" />
+    <Compile Include="Types\UHash.cs" />
     <Compile Include="__Metadata_Store_Test.cs" />
   </ItemGroup>
   <ItemGroup>

@@ -2,29 +2,36 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.Serialization;
+using System.Runtime.Serialization.Formatters.Binary;
 using System.Text;
 using System.Windows.Forms;
-//using WolvenKit.W3Strings;
+using WolvenKit.Common;
 
 namespace WolvenKit.Bundles
 {
+    using Types;
+
     public class Metadata_Store
     {
         #region Info
-        public byte[] IDString = { 0x03, 0x56, 0x54, 0x4D }; // ".VTM"
-        public Int32 Version = 6;
-        public Int32 MaxFileSizeInBundle;
-        public Int32 MaxFileSIzeInMemory;
+        public static byte[] IDString = { 0x03, 0x56, 0x54, 0x4D }; // ".VTM"
+        public static Int32 Version = 6;
+        public static Int32 MaxFileSizeInBundle;
+        public static Int32 MaxFileSIzeInMemory;
         #endregion
 
-        public byte[] FileStringTable;
-        TDynArray<UFileInfo> fileInfoList;
-        TDynArray<UFileEntryInfo> fileEntryInfoList;
-        TDynArray<UBundleInfo> bundleInfoList;
+        #region Fields
+        List<byte> FileStringTable = new List<byte>();
+        TDynArray<UFileInfo> fileInfoList = new TDynArray<UFileInfo>();
+        TDynArray<UFileEntryInfo> fileEntryInfoList = new TDynArray<UFileEntryInfo>();
+        TDynArray<UBundleInfo> bundleInfoList = new TDynArray<UBundleInfo>();
         List<Int32> Buffers = new List<int>();
-        TDynArray<UDirInitInfo> dirInitInfoList;
-        TDynArray<UFileInitInfo> fileInitInfoList;
-        TDynArray<UHash> hashes;
+        TDynArray<UDirInitInfo> dirInitInfoList = new TDynArray<UDirInitInfo>();
+        TDynArray<UFileInitInfo> fileInitInfoList = new TDynArray<UFileInitInfo>();
+        TDynArray<UHash> hashes = new TDynArray<UHash>();
+        #endregion
+
 
         public void cwdump(object obj,BinaryReader br)
         {
@@ -34,7 +41,6 @@ namespace WolvenKit.Bundles
             Console.WriteLine();
 
         }
-
         public static string ReadCR2WString(BinaryReader br, int len = 0)
         {
             if (br.BaseStream.Position >= br.BaseStream.Length)
@@ -59,7 +65,37 @@ namespace WolvenKit.Bundles
             return str;
         }
 
-        public Metadata_Store(string filepath)
+        public Metadata_Store()
+        {
+
+        }
+
+        public Metadata_Store(params Bundle[] Bundles)
+        {
+            Read(Bundles);
+        }
+
+        public Metadata_Store(string inDir)
+        {
+            BundleManager bm = new BundleManager();
+            List<string> modsdirs = new List<string>();
+            modsdirs.Add(inDir);
+            modsdirs.AddRange(Directory.GetDirectories(inDir));
+            modsdirs.Sort(new AlphanumComparator<string>());
+
+            var modbundles = modsdirs.SelectMany(dir => Directory.GetFiles(dir, "*.bundle", SearchOption.AllDirectories)).ToList();
+            foreach (var file in modbundles)
+                bm.LoadModBundle(file);
+
+            List<Bundle> bundles = bm.Bundles.ToList().Select(_ => _.Value).ToList();
+            Read(bundles.ToArray());
+        }
+
+        /// <summary>
+        /// Reads a Metadata_Store from a metadata.store file.
+        /// </summary>
+        /// <param name="filepath"></param>
+        public void Read(string filepath)
         {
             Console.WriteLine("Reading: " + filepath);
             using (var br = new BinaryReader(new FileStream(filepath, FileMode.Open)))
@@ -82,14 +118,14 @@ namespace WolvenKit.Bundles
                 do a virtual tree inside the bundles
                 one more empty line at the end=> ""
                  */
-                FileStringTable = br.ReadBytes(StringTableSize);
+                FileStringTable = br.ReadBytes(StringTableSize).ToList();
 
                 //Read the file infos
                 fileInfoList = new TDynArray<UFileInfo>();
                 fileInfoList.Deserialize(br);
                 
 
-                using (var ms = new MemoryStream(FileStringTable))
+                using (var ms = new MemoryStream(FileStringTable.ToArray()))
                 {
                     using (var brr = new BinaryReader(ms))
                     {
@@ -140,141 +176,286 @@ namespace WolvenKit.Bundles
             }
         }
 
-        public void Write(string OutPutPath, params Bundle[] Bundles)
+        /// <summary>
+        /// Reads a Metadata_Store from a list of bundles.
+        /// </summary>
+        /// <param name="Bundles"></param>
+        public void Read(params Bundle[] Bundles)
         {
-            //TODO: Code this when everything is figured out.
-        }
-    }
-
-    public class UBundleInfo : ISerializable
-    {
-        public UInt32 Name;
-        public UInt32 FirstFileEntry;
-        public UInt32 NumBundleEntries;
-        public UInt32 DataBlockSize;
-        public UInt32 DataBlockOffset;
-        public UInt32 BurstDataBlockSize;
-
-        public void Deserialize(BinaryReader reader)
-        {
-            Name = reader.ReadUInt32();
-            FirstFileEntry = reader.ReadUInt32();
-            NumBundleEntries = reader.ReadUInt32();
-            DataBlockSize = reader.ReadUInt32();
-            DataBlockOffset = reader.ReadUInt32();
-            BurstDataBlockSize = reader.ReadUInt32();
-        }
-
-        public void Serialize(BinaryWriter writer)
-        {
-            throw new NotImplementedException();
-        }
-    }
-
-    public class UFileInfo : ISerializable
-    {
-        public string path;
-
-        public UInt32 StringTableNameOffset;
-        public UInt32 PathHash;
-        public UInt32 SizeInBundle;
-        public UInt32 SizeInMemory;
-        public UInt32  FirstEntry;
-        public UInt32 CompressionType;
-        public UInt32 bufferid;
-        public UInt32 hasbuffer;
-
-        public void Deserialize(BinaryReader reader)
-        {
-            StringTableNameOffset = reader.ReadUInt32();
-            PathHash = reader.ReadUInt32();
-            SizeInBundle = reader.ReadUInt32();
-            SizeInMemory = reader.ReadUInt32();
-            FirstEntry = reader.ReadUInt32();
-            CompressionType = reader.ReadUInt32();
-            bufferid = reader.ReadUInt32();
-            hasbuffer = reader.ReadUInt32();
-        }
-
-        public void Serialize(BinaryWriter writer)
-        {
+            #region Info
+            FileStringTable.Add( 0x00 );
+            fileInfoList.Add( new UFileInfo() );
+            fileEntryInfoList.Add( new UFileEntryInfo() );
+            bundleInfoList.Add( new UBundleInfo() );
+            #endregion
             
+
+            var stOffsetDict = new Dictionary<string, uint>();
+            var _entries = new List<BundleItem>();
+
+            var _entryNames = new List<string>();
+            var _bufferNames = new List<string>();
+            var _bundleNames = new List<string>();
+            var _fileNames = new List<string>();
+            var _dirNames = new List<string>();
+
+            var _dirInfos = new List<DirectoryInfo>();
+            var _fileInfos = new List<FileInfo>();
+
+            #region Dir and Files Table
+            foreach (var b in Bundles)
+            {
+                string bundleName = b.FileName.Split('\\').Last();
+                _bundleNames.Add(bundleName);
+
+                stOffsetDict.Add(bundleName, (uint)FileStringTable.Count);
+                FileStringTable.AddRange(Encoding.UTF8.GetBytes(bundleName));
+                FileStringTable.Add(0x00);
+                
+                foreach (var item in b.Items.Select(_ => _.Value))
+                {
+                    string relFullPath = item.Name;
+                    if (_entryNames.Contains(relFullPath))
+                        continue;
+
+                    // stringtable: files
+                    stOffsetDict.Add(relFullPath, (uint)FileStringTable.Count);
+                    FileStringTable.AddRange(Encoding.UTF8.GetBytes(relFullPath));
+                    FileStringTable.Add(0x00);
+
+                    //add buffername
+                    if (relFullPath.Split('.').Last() == "buffer")
+                    {
+                        //add to buffer list
+                        string buffername = relFullPath.Split(new string[] { ".1.buffer" }, StringSplitOptions.None).First();
+                        if (_bufferNames.Contains(relFullPath))
+                            continue;
+                        _bufferNames.Add(buffername);
+                    }
+                    else
+                    {
+                        // stringtable: dir and file names
+                        FileInfo fi = new FileInfo($"\\{relFullPath}");
+                        _fileInfos.Add(fi);
+                        if (!_fileNames.Contains(fi.Name))
+                            _fileNames.Add(fi.Name);
+                        var dirs = relFullPath.Split('\\').ToList();
+                        dirs.Remove(dirs.Last());
+                        _dirNames.AddRange(dirs.Where(_ => !_dirNames.Contains(_)));
+                    }
+
+                    // add to entry list
+                    _entryNames.Add(relFullPath);
+                    _entries.Add(item);
+                }
+            }
+
+            FileStringTable.Add(0x00);
+            foreach (var d in _dirNames)
+            {
+                stOffsetDict.Add(d, (uint)FileStringTable.Count);
+                FileStringTable.AddRange(Encoding.UTF8.GetBytes(d));
+                FileStringTable.Add(0x00);
+            }
+            foreach (var f in _fileNames)
+            {
+                stOffsetDict.Add(f, (uint)FileStringTable.Count);
+                FileStringTable.AddRange(Encoding.UTF8.GetBytes(f));
+                FileStringTable.Add(0x00);
+            }
+
+            int StringTableSize = FileStringTable.Count;
+            #endregion
+
+            #region UFileInitInfo and Hashes
+            foreach (var fi in _fileInfos)
+            {
+                //add directoryInfo to Directory info list
+                DirectoryInfo di = fi.Directory;
+                while (true)
+                {
+                    if (_dirInfos.Select(_ => _.Name).Contains(di.Name))
+                        break;
+
+                    _dirInfos.Add(di);
+                    di = di.Parent;
+                    if (di.Parent == null)
+                        break;
+                }
+
+                var fii = new UFileInitInfo()
+                {
+                    FileIF = _fileInfos.IndexOf(fi) + 1,
+                    DirID = (Int32)_dirNames.IndexOf(fi.Directory.Name) + 1,
+                    Name = (Int32)stOffsetDict[fi.Name]
+                };
+                fileInitInfoList.Add(fii);
+
+                var fullname = _entries.First(_ => _.Name.Split('\\').Last() == fi.Name).Name;
+                UInt64 hash = (UInt64)FNV1a.HashFNV1a64(fullname);
+                var h = new UHash()
+                {
+                    Hash = (UInt64)hash,
+                    FileID = (UInt64)_fileInfos.IndexOf(fi) + 1
+                };
+                hashes.Add(h);
+            }
+            //hashes are sorted by hashsize not by filenumber
+            hashes.Sort((x, y) => x.Hash.CompareTo(y.Hash));
+            #endregion
+
+            #region UDirInitInfo
+            //first directoryinfo i null with offset to the first 0 byte of the dir Table
+            _dirInfos.Reverse();
+            dirInitInfoList.Add(new UDirInitInfo()
+            {
+                ParentID = 0,
+                Name = (Int32)stOffsetDict[_dirNames.First()] - 1
+            });
+            foreach (var di in _dirInfos)
+            {
+                Int32 parentID = 0;
+                if (di.Parent.Parent != null)
+                    parentID = (int)_dirNames.IndexOf(di.Parent.Name) + 1;
+
+                var dii = new UDirInitInfo()
+                {
+                    ParentID = parentID,
+                    Name = (Int32)stOffsetDict[di.Name]
+                };
+                dirInitInfoList.Add(dii);
+            }
+            #endregion
+
+            #region UBundleInfo
+            foreach (var b in Bundles)
+            {
+                string bundleName = b.FileName.Split('\\').Last();
+
+                BundleItem ffe = _entries.First(_ => _.Bundle.FileName.Split('\\').Last() == bundleName);
+
+                var bi = new UBundleInfo()
+                {
+                    Name = stOffsetDict[bundleName],
+                    FirstFileEntry = (UInt32)(_entries.IndexOf(ffe) + 1),
+                    NumBundleEntries = (UInt32)b.Items.ToList().Count,
+                    DataBlockSize = b.DataBlockSize, //this is wrong for BUffers //FIXME
+                    DataBlockOffset = b.DataBlockOffset,
+                    BurstDataBlockSize = 0,
+                };
+                bundleInfoList.Add(bi);
+            }
+            #endregion
+
+            #region UFileInfos and UFileEntryInfos
+            for (int i = 0; i < _entries.Count; i++)
+            {
+                BundleItem e = _entries[i];
+
+
+                UInt32 bufferid = 0;
+                UInt32 hasbuffer = 0;
+                if (_bufferNames.Contains(e.Name))
+                {
+                    hasbuffer = 1;
+                    bufferid = (uint)_bufferNames.IndexOf(e.Name);
+                }
+
+                var fi = new UFileInfo()
+                {
+                    StringTableNameOffset = stOffsetDict[e.Name],
+                    PathHash = 0, //FIXME this is always 0...
+                    SizeInBundle = e.ZSize,
+                    SizeInMemory = (UInt32)e.Size,
+                    FirstEntry = (UInt32)(_entries.IndexOf(e) + 1),
+                    CompressionType = e.Compression,
+                    bufferid = bufferid,
+                    hasbuffer = hasbuffer
+                };
+                fileInfoList.Add(fi);
+
+                string bundleName = e.Bundle.FileName.Split('\\').Last();
+                var fei = new UFileEntryInfo()
+                {
+                    FileID = (uint)i + 1,
+                    BundleID = (uint)_bundleNames.ToList().IndexOf(bundleName) + 1,
+                    OffsetInBundle = (uint)e.PageOFfset,
+                    SizeInBundle = e.ZSize,
+                    NextEntry = 0
+                };
+                fileEntryInfoList.Add(fei);
+            }
+            #endregion
+
+            #region Buffers
+            foreach (var buffer in _entries.Where(_ => _.Name.Split('.')?.Last() == "buffer"))
+                Buffers.Add(_entries.IndexOf(buffer) + 1);
+            #endregion
+
+        }
+
+        /// <summary>
+        /// Serialize to a file from a list of bundles.
+        /// </summary>
+        /// <param name="Outputpath"></param>
+        /// <param name="Bundles"></param>
+        public void Write(string Outputpath)
+        {
+            using (var fs = new FileStream(Outputpath, FileMode.Create))
+            using (var bw = new BinaryWriter(fs))
+            {
+                // header
+                bw.Write(IDString);
+                bw.Write((Int32)Version);
+                bw.Write((Int32)MaxFileSizeInBundle);
+                bw.Write((Int32)MaxFileSIzeInMemory);
+                // string table (file names, individual strings)
+                bw.WriteVLQInt32(FileStringTable.Count);
+                bw.Write(FileStringTable.ToArray());
+                // write UFileInfos
+                fileInfoList.Serialize(bw);
+                // write UFileEntryInfos
+                fileEntryInfoList.Serialize(bw);
+                // write UBundleInfos
+                bundleInfoList.Serialize(bw);
+                // write Buffers
+                bw.WriteVLQInt32(Buffers.Count);
+                foreach (var index in Buffers)
+                    bw.Write((UInt32)index);
+                // write UDirInitInfos
+                dirInitInfoList.Serialize(bw);
+                // write UFileInitInfos
+                fileInitInfoList.Serialize(bw);
+                // write UHashes
+                hashes.Serialize(bw);
+
+            }
+        }
+
+
+
+        /// <summary>
+        /// Serialize to a file from a directory.
+        /// </summary>
+        /// <param name="Outputpath"></param>
+        /// <param name="inDir"></param>
+        public static void Write(string Outputpath, string inDir)
+        {
+            Metadata_Store store = new Metadata_Store(inDir);
+            store.Write(Outputpath);
         }
     }
 
-    public class UFileEntryInfo : ISerializable
-    {
-        public UInt32 FileID;
-        public UInt32 BundleID;
-        public UInt32 OffsetInBundle;
-        public UInt32 SizeInBundle;
-        public UInt32 NextEntry;
+    
+    
 
-        public void Deserialize(BinaryReader reader)
-        {
-            FileID = reader.ReadUInt32();
-            BundleID = reader.ReadUInt32();
-            OffsetInBundle = reader.ReadUInt32();
-            SizeInBundle = reader.ReadUInt32();
-            NextEntry = reader.ReadUInt32();
-        }
+    
 
-        public void Serialize(BinaryWriter writer)
-        {
-            throw new NotImplementedException();
-        }
-    }
+    
 
-    public class UDirInitInfo : ISerializable
-    {
-        public Int32 Name;
-        public Int32 Parent;
+    
 
-        public void Deserialize(BinaryReader reader)
-        {
-            Name = reader.ReadInt32();
-            Parent = reader.ReadInt32();
-        }
+    
 
-        public void Serialize(BinaryWriter writer)
-        {
-            throw new NotImplementedException();
-        }
-    }
-
-    public class UFileInitInfo : ISerializable
-    {
-        public Int32 FileIF;
-        public Int32 DirID;
-        public Int32 Name;
-
-        public void Deserialize(BinaryReader reader)
-        {
-            FileIF = reader.ReadInt32();
-            DirID = reader.ReadInt32();
-            Name = reader.ReadInt32();
-        }
-
-        public void Serialize(BinaryWriter writer)
-        {
-            throw new NotImplementedException();
-        }
-    }
-
-    public class UHash : ISerializable
-    {
-        public Int64 Hash;
-        public Int64 Unk2; //Some count thing
-
-        public void Deserialize(BinaryReader reader)
-        {
-            Hash = reader.ReadInt64();
-            Unk2 = reader.ReadInt64();
-        }
-
-        public void Serialize(BinaryWriter writer)
-        {
-            throw new NotImplementedException();
-        }
-    }
+    
 }

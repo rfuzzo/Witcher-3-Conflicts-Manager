@@ -74,22 +74,23 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
         /// Returns true if for all conflicts a file has been selected.
         /// </summary>
         /// <returns></returns>
-        public bool CanPatch() => !ConflictsList.Where(x => !x.Resolved()).Any();
-        //public bool CanPatch() => true; //true
+        //public bool CanPatch() => !ConflictsList.Where(x => !x.Resolved()).Any();
+        public bool CanPatch() => true; //true
         /// <summary>
         /// Pack list of resolved conflicting files into a new bundle.
         /// </summary>
         public void Patch()
         {
+            /*
             //dbg
             //load bundle
-            //var bundle = new Bundle(@"F:\Mods\modcleanboat\content\blob0.bundle");
+            var bundle = new Bundle(@"F:\Mods\modcleanboat\content\blob0.bundle");
             //var bundle = new Bundle(@"F:\Mods\modcleanboat\content\buffers0.bundle");
-            //List<IWitcherFile> patchFiles = new List<IWitcherFile>();
-            //foreach (var file in bundle.Items)
-            //    patchFiles.Add(file.Value);
+            List<IWitcherFile> patchFiles = new List<IWitcherFile>();
+            foreach (var file in bundle.Items)
+                patchFiles.Add(file.Value);
 
-            List<IWitcherFile> patchFiles = ConflictsList.Select(x => x.ResolvedFile()).ToList();
+            //List<IWitcherFile> patchFiles = ConflictsList.Select(x => x.ResolvedFile()).ToList();
 
 
             //fixme does that actually work like this?
@@ -113,9 +114,14 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
                 string bundlePath = Path.Combine(bundleDir, "pbuffers0.bundle");
                 Bundle.Write(bundlePath, bufferFiles);
             }
+            */
 
             //create metadata
+            var ms_file = new Metadata_Store();
+            ms_file.Read(@"F:\Mods\modcleanboat\content\metadata.store");
 
+            var ms_dir = new Metadata_Store(@"F:\Mods\modcleanboat\content");
+            ms_dir.Write(@"F:\Mods\metadata.store");
         }
 
         /// <summary>
