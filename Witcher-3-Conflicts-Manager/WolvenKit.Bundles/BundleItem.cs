@@ -1,5 +1,7 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
 using System.IO.MemoryMappedFiles;
+using System.Text;
 using Doboz;
 using Ionic.Zlib;
 using LZ4;
@@ -165,6 +167,26 @@ namespace WolvenKit.Bundles
                 Extract(output);
                 output.Close();
             }
+        }
+        public BundleItem()
+        {
+
+        }
+
+        public BundleItem(string filePath)
+        {
+            Hash = new byte[] { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+            Empty = (UInt32)0x00000000;
+            Size = (UInt32)new FileInfo(filePath).Length;
+            ZSize = (UInt32)GetCompressedSize(File.ReadAllBytes(filePath));
+
+            TimeStamp = (ulong)0x0000000000000000;
+            
+        }
+
+        public static int GetCompressedSize(byte[] content)
+        {
+            return LZ4.LZ4Codec.EncodeHC(content, 0, content.Length).Length;
         }
     }
 }

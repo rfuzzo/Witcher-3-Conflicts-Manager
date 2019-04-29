@@ -74,8 +74,8 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
         /// Returns true if for all conflicts a file has been selected.
         /// </summary>
         /// <returns></returns>
-        //public bool CanPatch() => !ConflictsList.Where(x => !x.Resolved()).Any();
-        public bool CanPatch() => true; //true
+        public bool CanPatch() => !ConflictsList.Where(x => !x.Resolved()).Any();
+        //public bool CanPatch() => true; //dbg
         /// <summary>
         /// Pack list of resolved conflicting files into a new bundle.
         /// </summary>
@@ -89,39 +89,40 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
             List<IWitcherFile> patchFiles = new List<IWitcherFile>();
             foreach (var file in bundle.Items)
                 patchFiles.Add(file.Value);
+              
+            //create metadata
+            string indir = @"F:\Mods\mod0000_PatchedFiles\content";
+            var ms_file = new Metadata_Store();
+            ms_file.Read(Path.Combine(indir, "wmetadata.store"));
 
-            //List<IWitcherFile> patchFiles = ConflictsList.Select(x => x.ResolvedFile()).ToList();
+            var ms_dir = new Metadata_Store(indir);
+            */
 
-
-            //fixme does that actually work like this?
-            var bufferFiles = patchFiles.Where(_ => _.Name.Split('.').Last() == "buffer").ToList();
-            var blobFiles = patchFiles.Where(_ => _.Name.Split('.').Last() != "buffer").ToList();
+            
+            List<IWitcherFile> patchFiles = ConflictsList.Select(x => x.ResolvedFile()).ToList();
+            List<IWitcherFile> bufferFiles = patchFiles.Where(_ => _.Name.Split('.').Last() == "buffer").ToList();
+            List<IWitcherFile> blobFiles = patchFiles.Where(_ => _.Name.Split('.').Last() != "buffer").ToList();
 
             //create bundle
-            
             string bundleDir = Path.Combine(ModDir, modPatchName, "content");
             if (!Directory.Exists(bundleDir))
                 Directory.CreateDirectory(bundleDir);
             //blob
+            List<Bundle> bundles = new List<Bundle>();
             if (blobFiles.Count > 0)
-            {
-                string bundlePath = Path.Combine(bundleDir, "pblob0.bundle");
-                Bundle.Write(bundlePath, blobFiles);
-            }
+                bundles.Add( new Bundle("pblob0", blobFiles.ToArray()));
             //buffers
             if (bufferFiles.Count > 0)
-            {
-                string bundlePath = Path.Combine(bundleDir, "pbuffers0.bundle");
-                Bundle.Write(bundlePath, bufferFiles);
-            }
-            */
+                bundles.Add(new Bundle("pbuffers0", bufferFiles.ToArray()));
+            foreach (var b in bundles)
+                b.Write(bundleDir);
+                
 
             //create metadata
-            var ms_file = new Metadata_Store();
-            ms_file.Read(@"F:\Mods\modcleanboat\content\metadata.store");
-
-            var ms_dir = new Metadata_Store(@"F:\Mods\modcleanboat\content");
-            ms_dir.Write(@"F:\Mods\metadata.store");
+            //var ms = new Metadata_Store(bundles.ToArray()); //FIXME broken for custom bundle names
+            var ms = new Metadata_Store(bundleDir);
+            ms.Write(bundleDir);
+            
         }
 
         /// <summary>
@@ -147,7 +148,8 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
             List<string> allFiles = new List<string>();
             List<string> allBundles = new List<string>();
 
-            allBundles = Directory.GetFiles(ModDir, "*.bundle", SearchOption.AllDirectories).ToList();
+            allBundles = Directory.GetFiles(ModDir, "blob0.bundle", SearchOption.AllDirectories).ToList();
+            allBundles.AddRange(Directory.GetFiles(ModDir, "buffers0.bundle", SearchOption.AllDirectories).ToList());
             BundleManager bm = new BundleManager();
             foreach (var bundle in allBundles)
                 bm.LoadBundle(bundle);

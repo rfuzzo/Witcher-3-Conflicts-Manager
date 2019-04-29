@@ -10,5 +10,6 @@ namespace WolvenKit.Common
     {
         string TypeName { get; }
         string FileName { get; set; }
+        string Name { get; set; }
     }
 }

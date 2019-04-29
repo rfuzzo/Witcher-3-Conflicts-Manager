@@ -36,7 +36,8 @@ namespace WolvenKit.Bundles
             if (Bundles.ContainsKey(filename))
                 return;
 
-            var bundle = new Bundle(filename);
+            var bundle = new Bundle();
+            bundle.Read(filename);
 
             foreach (var item in bundle.Items)
             {
@@ -58,7 +59,8 @@ namespace WolvenKit.Bundles
             if (Bundles.ContainsKey(filename))
                 return;
 
-            var bundle = new Bundle(filename);
+            var bundle = new Bundle();
+            bundle.Read(filename);
 
             foreach (var item in bundle.Items)
             {

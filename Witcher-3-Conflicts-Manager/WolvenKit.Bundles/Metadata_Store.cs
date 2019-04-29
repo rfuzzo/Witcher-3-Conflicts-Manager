@@ -17,8 +17,8 @@ namespace WolvenKit.Bundles
         #region Info
         public static byte[] IDString = { 0x03, 0x56, 0x54, 0x4D }; // ".VTM"
         public static Int32 Version = 6;
-        public static Int32 MaxFileSizeInBundle;
-        public static Int32 MaxFileSIzeInMemory;
+        public static UInt32 MaxFileSizeInBundle;
+        public static UInt32 MaxFileSIzeInMemory;
         #endregion
 
         #region Fields
@@ -31,39 +31,6 @@ namespace WolvenKit.Bundles
         TDynArray<UFileInitInfo> fileInitInfoList = new TDynArray<UFileInitInfo>();
         TDynArray<UHash> hashes = new TDynArray<UHash>();
         #endregion
-
-
-        public void cwdump(object obj,BinaryReader br)
-        {
-            Console.WriteLine("Dumping object: " + obj.GetType().Name);
-            Console.WriteLine(ObjectDumper.Dump(obj));
-            Console.WriteLine("Br is at: " + br.BaseStream.Position + "[0x"+ br.BaseStream.Position.ToString("X") + "] left: " + ((int)br.BaseStream.Length-br.BaseStream.Position) + "[0x" + ((int)br.BaseStream.Length-br.BaseStream.Position).ToString("X") + "]");
-            Console.WriteLine();
-
-        }
-        public static string ReadCR2WString(BinaryReader br, int len = 0)
-        {
-            if (br.BaseStream.Position >= br.BaseStream.Length)
-                throw new IndexOutOfRangeException();
-            string str = null;
-            if (len > 0)
-            {
-                str = Encoding.Default.GetString(br.ReadBytes(len));
-            }
-            else
-            {
-                bool shouldread = true;
-                while (shouldread)
-                {
-                    if (br.BaseStream.Position >= br.BaseStream.Length) //mallformed string not closed by '\0' properly
-                        throw new IndexOutOfRangeException();
-                    var c = br.ReadByte();
-                    str += (char)c;
-                    shouldread = (c != 0);
-                }
-            }
-            return str;
-        }
 
         public Metadata_Store()
         {
@@ -78,12 +45,12 @@ namespace WolvenKit.Bundles
         public Metadata_Store(string inDir)
         {
             BundleManager bm = new BundleManager();
-            List<string> modsdirs = new List<string>();
-            modsdirs.Add(inDir);
-            modsdirs.AddRange(Directory.GetDirectories(inDir));
-            modsdirs.Sort(new AlphanumComparator<string>());
+            List<string> dirs = new List<string>();
+            dirs.Add(inDir);
+            dirs.AddRange(Directory.GetDirectories(inDir));
+            dirs.Sort(new AlphanumComparator<string>());
 
-            var modbundles = modsdirs.SelectMany(dir => Directory.GetFiles(dir, "*.bundle", SearchOption.AllDirectories)).ToList();
+            var modbundles = dirs.SelectMany(dir => Directory.GetFiles(dir, "*.bundle", SearchOption.AllDirectories)).ToList();
             foreach (var file in modbundles)
                 bm.LoadModBundle(file);
 
@@ -103,8 +70,8 @@ namespace WolvenKit.Bundles
                 if (!br.ReadBytes(4).SequenceEqual(IDString))
                     throw new InvalidDataException("Wrong Magic when reading the metadata.store file!");
                 Version = br.ReadInt32();
-                MaxFileSizeInBundle = br.ReadInt32();
-                MaxFileSIzeInMemory = br.ReadInt32();
+                MaxFileSizeInBundle = br.ReadUInt32();
+                MaxFileSIzeInMemory = br.ReadUInt32();
                 var StringTableSize = br.ReadVLQInt32();
                 //Read the string table
                 /*
@@ -191,7 +158,7 @@ namespace WolvenKit.Bundles
             
 
             var stOffsetDict = new Dictionary<string, uint>();
-            var _entries = new List<BundleItem>();
+            var _entries = new List<IWitcherFile>();
 
             var _entryNames = new List<string>();
             var _bufferNames = new List<string>();
@@ -205,14 +172,14 @@ namespace WolvenKit.Bundles
             #region Dir and Files Table
             foreach (var b in Bundles)
             {
-                string bundleName = b.FileName.Split('\\').Last();
+                string bundleName = b.Name;
                 _bundleNames.Add(bundleName);
 
                 stOffsetDict.Add(bundleName, (uint)FileStringTable.Count);
                 FileStringTable.AddRange(Encoding.UTF8.GetBytes(bundleName));
                 FileStringTable.Add(0x00);
                 
-                foreach (var item in b.Items.Select(_ => _.Value))
+                foreach (var item in b.ItemsList)
                 {
                     string relFullPath = item.Name;
                     if (_entryNames.Contains(relFullPath))
@@ -330,16 +297,16 @@ namespace WolvenKit.Bundles
             #region UBundleInfo
             foreach (var b in Bundles)
             {
-                string bundleName = b.FileName.Split('\\').Last();
+                string bundleName = b.Name;
 
-                BundleItem ffe = _entries.First(_ => _.Bundle.FileName.Split('\\').Last() == bundleName);
+                IWitcherFile ffe = _entries.First(_ => _.Bundle.Name == bundleName);
 
                 var bi = new UBundleInfo()
                 {
                     Name = stOffsetDict[bundleName],
                     FirstFileEntry = (UInt32)(_entries.IndexOf(ffe) + 1),
-                    NumBundleEntries = (UInt32)b.Items.ToList().Count,
-                    DataBlockSize = b.DataBlockSize, //this is wrong for BUffers //FIXME
+                    NumBundleEntries = (UInt32)b.ItemsList.Count,
+                    DataBlockSize = b.DataBlockSize, //this is wrong for Buffers //FIXME
                     DataBlockOffset = b.DataBlockOffset,
                     BurstDataBlockSize = 0,
                 };
@@ -350,7 +317,7 @@ namespace WolvenKit.Bundles
             #region UFileInfos and UFileEntryInfos
             for (int i = 0; i < _entries.Count; i++)
             {
-                BundleItem e = _entries[i];
+                IWitcherFile e = _entries[i];
 
 
                 UInt32 bufferid = 0;
@@ -374,7 +341,7 @@ namespace WolvenKit.Bundles
                 };
                 fileInfoList.Add(fi);
 
-                string bundleName = e.Bundle.FileName.Split('\\').Last();
+                string bundleName = e.Bundle.Name;
                 var fei = new UFileEntryInfo()
                 {
                     FileID = (uint)i + 1,
@@ -392,16 +359,19 @@ namespace WolvenKit.Bundles
                 Buffers.Add(_entries.IndexOf(buffer) + 1);
             #endregion
 
+            MaxFileSizeInBundle = fileInfoList.Select(_ => _.SizeInBundle).ToList().Max();
+            MaxFileSIzeInMemory = fileInfoList.Select(_ => _.SizeInMemory).ToList().Max();
         }
 
         /// <summary>
         /// Serialize to a file from a list of bundles.
         /// </summary>
-        /// <param name="Outputpath"></param>
+        /// <param name="outDir"></param>
         /// <param name="Bundles"></param>
-        public void Write(string Outputpath)
+        public void Write(string outDir)
         {
-            using (var fs = new FileStream(Outputpath, FileMode.Create))
+            var filePath = Path.Combine(outDir, "metadata.store");
+            using (var fs = new FileStream(filePath, FileMode.Create))
             using (var bw = new BinaryWriter(fs))
             {
                 // header
@@ -437,12 +407,46 @@ namespace WolvenKit.Bundles
         /// <summary>
         /// Serialize to a file from a directory.
         /// </summary>
-        /// <param name="Outputpath"></param>
+        /// <param name="outDir"></param>
         /// <param name="inDir"></param>
-        public static void Write(string Outputpath, string inDir)
+        public static void Write(string outDir, string inDir)
         {
             Metadata_Store store = new Metadata_Store(inDir);
-            store.Write(Outputpath);
+            store.Write(outDir);
+        }
+
+
+
+        public void cwdump(object obj, BinaryReader br)
+        {
+            Console.WriteLine("Dumping object: " + obj.GetType().Name);
+            Console.WriteLine(ObjectDumper.Dump(obj));
+            Console.WriteLine("Br is at: " + br.BaseStream.Position + "[0x" + br.BaseStream.Position.ToString("X") + "] left: " + ((int)br.BaseStream.Length - br.BaseStream.Position) + "[0x" + ((int)br.BaseStream.Length - br.BaseStream.Position).ToString("X") + "]");
+            Console.WriteLine();
+
+        }
+        public static string ReadCR2WString(BinaryReader br, int len = 0)
+        {
+            if (br.BaseStream.Position >= br.BaseStream.Length)
+                throw new IndexOutOfRangeException();
+            string str = null;
+            if (len > 0)
+            {
+                str = Encoding.Default.GetString(br.ReadBytes(len));
+            }
+            else
+            {
+                bool shouldread = true;
+                while (shouldread)
+                {
+                    if (br.BaseStream.Position >= br.BaseStream.Length) //mallformed string not closed by '\0' properly
+                        throw new IndexOutOfRangeException();
+                    var c = br.ReadByte();
+                    str += (char)c;
+                    shouldread = (c != 0);
+                }
+            }
+            return str;
         }
     }
 

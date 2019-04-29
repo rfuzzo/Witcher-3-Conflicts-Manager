@@ -11,6 +11,7 @@ namespace WolvenKit.Bundles
 {
     public class Bundle : IWitcherArchiveType
     {
+        #region Info
         private static readonly byte[] IDString =
         {
             (byte) 'P', (byte) 'O', (byte) 'T', (byte) 'A',
@@ -22,34 +23,46 @@ namespace WolvenKit.Bundles
         private static string FOOTER_DATA = "AlignmentUnused"; //The bundle's final filesize should be an even multiple of 16; garbage data should be appended at the end if necessary to make this happen [appears to be unnecessary/optional, as far as the game cares]
         private static int TOCEntrySize = 0x100 + 16 + 4 + 4 + 4 + 4 + 8 + 16 + 4 + 4; //Size of a TOC Entry.
 
-        private UInt16 bundlesize;
-        private UInt16 unk1;
-        private uint dataoffset;
+        private uint bundlesize;
+        private uint tocRealSize;
         private uint dummysize;
+        #endregion
 
+        #region Properties
         public uint DataBlockSize { get; set; }
         public uint DataBlockOffset { get; set; }
+        public string TypeName { get { return "Bundle"; } }
+        public string FileName { get; set; }
+        public string Name { get; set; }
+        public Dictionary<string, BundleItem> Items { get; set; }
+        public List<IWitcherFile> ItemsList { get; set; } = new List<IWitcherFile>();
+        #endregion
 
-        public Bundle(string filename)
-        {
-            FileName = filename;
-            Read();
-        }
+        #region Fields
+
+        List<byte[]> uncompressedData { get; set; } = new List<byte[]>();
+        List<KeyValuePair<uint, List<byte>>> BODY { get; set; } = new List<KeyValuePair<uint, List<byte>>>();
+        #endregion
 
         public Bundle()
         {
 
         }
+        public Bundle(string name, params IWitcherFile[] Files)
+        {
+            Name = $"{name}.bundle";
+            Read(Files);
+        }
 
-        public string TypeName { get { return "Bundle"; } }
-        public string FileName { get; set; }
-        public Dictionary<string, BundleItem> Items { get; set; }
+        
         
         /// <summary>
-        /// Reads the Table Of Contents of the bundle.
+        /// Reads a .bundle file.
         /// </summary>
-        private void Read()
+        public void Read(string filename)
         {
+            FileName = filename;
+            Name = filename.Split('\\').Last();
             Items = new Dictionary<string, BundleItem>();
 
             using (var reader = new BinaryReader(new FileStream(FileName, FileMode.Open, FileAccess.Read)))
@@ -61,17 +74,16 @@ namespace WolvenKit.Bundles
                     throw new InvalidBundleException("Bundle header mismatch.");
                 }
 
-                bundlesize = reader.ReadUInt16(); //this seems to be a Uint16
-                unk1 = reader.ReadUInt16(); //2 bytes left over
+                bundlesize = reader.ReadUInt32();
                 dummysize = reader.ReadUInt32();
-                dataoffset = reader.ReadUInt32();
+                tocRealSize = reader.ReadUInt32();
 
-                DataBlockOffset = dataoffset + (uint)HEADER_SIZE;
+                DataBlockOffset = tocRealSize + (uint)HEADER_SIZE;
                 DataBlockSize = bundlesize - DataBlockOffset;
 
                 reader.BaseStream.Seek(0x20, SeekOrigin.Begin);
 
-                while (reader.BaseStream.Position < dataoffset + 0x20)
+                while (reader.BaseStream.Position < tocRealSize + 0x20)
                 {
                     var item = new BundleItem
                     {
@@ -104,6 +116,7 @@ namespace WolvenKit.Bundles
                     item.Compression = reader.ReadUInt32();
 
                     Items.Add(item.Name, item);
+                    ItemsList.Add(item);
                 }
 
 
@@ -111,40 +124,24 @@ namespace WolvenKit.Bundles
             }
         }
 
-        private static byte[] CompressFile(byte[] Data, int ComType)
-        {
-            switch (ComType)
-            {
-                case 4:
-                case 5:
-                    {
-                        return LZ4.LZ4Codec.EncodeHC(Data, 0, Data.Length);
-                    }
-                default:
-                    {
-                        return Data;
-                    }
-            }
-        }
-
-
         /// <summary>
-        /// Packs a List of IWitcherFiles to a bundle.
+        /// Generate a bundle from a list of IWitcherFiles.
         /// </summary>
-        /// <param name="Outputpath">The path to save the bundle to with the packed files.</param>
-        /// <param name="BundleItems">The List of Files to pack</param>
-        public static void Write(string Outputpath, List<IWitcherFile> BundleItems)
+        /// <param name="Files"></param>
+        public void Read(params IWitcherFile[] Files)
         {
+            ItemsList = Files.ToList();
+
             // calculate ToC size
-            UInt32 toCRealSize = (UInt32)(BundleItems.Count * TOCEntrySize);
+            dummysize = 0;
+            tocRealSize = (UInt32)(ItemsList.Count * TOCEntrySize);
 
             // MAIN BODY
-            var uncompressedData = new List<byte[]>();
-            var BODY = new List<KeyValuePair<uint, List<byte>>>();
-            int offset = GetOffset((int)toCRealSize);
-            for (int i = 0; i < BundleItems.Count; i++)
+            int offset = GetOffset((int)tocRealSize);
+            for (int i = 0; i < ItemsList.Count; i++)
             {
-                IWitcherFile item = (IWitcherFile)BundleItems[i];
+                IWitcherFile item = (IWitcherFile)ItemsList[i];
+                //item.Bundle = this; //FIXME reparent items
 
                 //get uncompressed data
                 byte[] uc = item.UncompressedData();
@@ -156,33 +153,42 @@ namespace WolvenKit.Bundles
                 var filesize = compressedFile.Count;
                 var nextOffset = GetOffset(offset + filesize);
                 int paddingLength = nextOffset - (offset + filesize);
-                if (paddingLength > 0 && i < (BundleItems.Count - 1)) //don't pad the last item
+                if (paddingLength > 0 && i < (ItemsList.Count - 1)) //don't pad the last item
                     compressedFile.AddRange(new byte[paddingLength]);
 
                 BODY.Add(new KeyValuePair<uint, List<byte>>((uint)offset, compressedFile));
 
                 offset = nextOffset;
             }
+            bundlesize = (uint)offset;
+            DataBlockOffset = tocRealSize + (uint)HEADER_SIZE;
+            DataBlockSize = bundlesize - DataBlockOffset;
+        }
 
-            
-            using (var fs = new FileStream(Outputpath, FileMode.Create))
+        /// <summary>
+        /// Serialize bundle to a .bundle file.
+        /// </summary>
+        /// <param name="outDir"></param>
+        public void Write(string outDir)
+        {
+            var filePath = Path.Combine(outDir, Name);
+
+            using (var fs = new FileStream(filePath, FileMode.Create))
             using (var bw = new BinaryWriter(fs))
             {
-                var dummysize = 0; //May not need to be recomputed. TODO: Investigate
-                UInt32 bundleSize = (UInt32)(offset);    //last offset is the offset of the end of the last compressed file entry
 
                 // Write Header
                 bw.Write(IDString);
-                bw.Write(bundleSize); //TODO for buffers this is just 4095??
+                bw.Write(bundlesize);
                 bw.Write(dummysize);
-                bw.Write(toCRealSize);
+                bw.Write(tocRealSize);
                 bw.Write(new byte[] { 0x03, 0x00, 0x01, 0x00, 0x00, 0x13, 0x13, 0x13, 0x13, 0x13, 0x13, 0x13 }); //TODO: Figure out what the hell is this.
 
                 // Write ToC
                 var minDataOffset = ALIGNMENT_TARGET;
-                for (int i = 0; i < BundleItems.Count; i++)
+                for (int i = 0; i < ItemsList.Count; i++)
                 {
-                    IWitcherFile f = BundleItems[i];
+                    IWitcherFile f = ItemsList[i];
                     var dataOffset = BODY[i].Key;
 
                     var name = Encoding.Default.GetBytes(f.Name).ToArray();
@@ -219,16 +225,64 @@ namespace WolvenKit.Bundles
             }
         }
 
+        //FIXME buffers and blobs
         /// <summary>
-        /// Packs files to a bundle.
+        /// Create a .bundle file from a directory.
         /// </summary>
-        /// <param name="Outputpath">The path to save the bundle to with the packed files.</param>
-        /// <param name="Files">The Files to pack</param>
-        public static void Write(string Outputpath, string rootfolder)
+        /// <param name="outDir"></param>
+        /// <param name="inDir"></param>
+        public static void Pack(string inDir, string outDir)
         {
-            throw new NotImplementedException();
+            List<IWitcherFile> bufferFiles = new List<IWitcherFile>();
+            List<IWitcherFile> blobFiles = new List<IWitcherFile>();
+
+            foreach (var f in Directory.EnumerateFiles(inDir, "*", SearchOption.AllDirectories))
+            {
+                var name = Encoding.Default.GetBytes(GetRelativePath(f, inDir)).ToArray();
+                if (name.Length > 0x100)
+                    name = name.Take(0x100).ToArray();
+                if (name.Length < 0x100)
+                    Array.Resize(ref name, 0x100);
+
+                var bi = new BundleItem
+                {
+                    Name = System.Text.Encoding.Default.GetString(name),
+                    Compression = 5, //FIXME make variable
+
+                };
+
+                //sort buffers out
+                if (f.Split('\\').Last().Split('.').Last() == "buffer")
+                    bufferFiles.Add(bi);
+                else
+                    blobFiles.Add(bi);
+            }
+
+            List<Bundle> bundles = new List<Bundle>();
+            if (blobFiles.Count > 0)
+                bundles.Add(new Bundle("blob0", blobFiles.ToArray()));
+            if (bufferFiles.Count > 0)
+                bundles.Add(new Bundle("buffers0", bufferFiles.ToArray()));
+            foreach (var b in bundles)
+                b.Write(outDir);
         }
 
+
+        private static byte[] CompressFile(byte[] Data, int ComType)
+        {
+            switch (ComType)
+            {
+                case 4:
+                case 5:
+                    {
+                        return LZ4.LZ4Codec.EncodeHC(Data, 0, Data.Length);
+                    }
+                default:
+                    {
+                        return Data;
+                    }
+            }
+        }
         public static int WriteCompressedData(BinaryWriter bw, byte[] Data,int ComType)
         {
             int writePosition = (int)bw.BaseStream.Position;
@@ -280,10 +334,7 @@ namespace WolvenKit.Bundles
             return firstValidPos;
         }
 
-        public static int GetCompressedSize(byte[] content)
-        {
-            return LZ4.LZ4Codec.EncodeHC(content, 0, content.Length).Length;
-        }
+        
 
         /// <summary>
         /// Gets relative path from absolute path.
