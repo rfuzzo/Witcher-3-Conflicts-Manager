@@ -30,7 +30,7 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
             ShowSettingsCommand = new RelayCommand(ShowSettings, CanShowSettings);
 
             //<baseGame>\bin\x64\witcher3.exe
-            BaseGameDir = Path.GetFullPath(Path.Combine(Properties.Settings.Default.TW3_Path, @"\..\..\"));
+            BaseGameDir = Path.GetFullPath(Path.Combine(Properties.Settings.Default.TW3_Path, @"\..\..\")); //Check if this works on your computer.
             ModDir = Path.Combine(BaseGameDir, @"Mods");
 
             //Load conflicts list
