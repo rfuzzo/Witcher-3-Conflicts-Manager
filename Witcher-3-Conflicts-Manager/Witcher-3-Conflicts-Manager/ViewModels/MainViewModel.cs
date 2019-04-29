@@ -8,7 +8,6 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Windows.Input;
-using Microsoft.Win32;
 using System.Diagnostics;
 
 
@@ -40,9 +39,7 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
 
             //View Manager
             //FIXME
-            if (String.IsNullOrEmpty(Properties.Settings.Default.WCC_Path) ||
-                String.IsNullOrEmpty(Properties.Settings.Default.TW3_Path) ||
-                !File.Exists(Properties.Settings.Default.WCC_Path) ||
+            if (String.IsNullOrEmpty(Properties.Settings.Default.TW3_Path) ||
                 !File.Exists(Properties.Settings.Default.TW3_Path)
                 )
                 ShowSettings();
@@ -114,12 +111,16 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
                 cvm.Reload();
             else
             {
-                var cvm = new ConflictsViewModel
+                if (cvm == null)
                 {
-                    ParentViewModel = this
-                };
-                Content = cvm;
+                    var vm = new ConflictsViewModel
+                    {
+                        ParentViewModel = this
+                    };
+                    cvm = vm;
+                }
             }
+            Content = cvm;
         }
 
         public void ShowFinished()

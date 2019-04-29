@@ -80,8 +80,8 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
         /// Returns true if for all conflicts a file has been selected.
         /// </summary>
         /// <returns></returns>
-        public bool CanPatch() => !ConflictsList.Where(x => !x.Resolved()).Any();
-        //public bool CanPatch() => true; //dbg
+        //public bool CanPatch() => !ConflictsList.Where(x => !x.Resolved()).Any();
+        public bool CanPatch() => true; //dbg
         /// <summary>
         /// Pack list of resolved conflicting files into a new bundle.
         /// </summary>
@@ -105,13 +105,15 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
             */
 
             
-            List<IWitcherFileWrapper> patchFiles = ConflictsList.Select(x => x.ResolvedFile()).ToList();
+            List<IWitcherFileWrapper> patchFiles = ConflictsList.Select(x => x.ResolvedFile()).Where(_ => _ != null).ToList();
             List<IWitcherFile> blobFiles = patchFiles.Select(_ => _.File).ToList();
             List<IWitcherFile> bufferFiles = patchFiles.Select(_ => _.Buffer).Where(_ => _ != null).ToList();
-            
 
-            //create bundle
-            string bundleDir = Path.Combine(ModDir, modPatchName, "content");
+            if (!(blobFiles.Count > 0) && !(bufferFiles.Count > 0))
+                return;
+
+                //create bundle
+                string bundleDir = Path.Combine(ModDir, modPatchName, "content");
             if (!Directory.Exists(bundleDir))
                 Directory.CreateDirectory(bundleDir);
             //blob
@@ -126,7 +128,10 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
                 
 
             //create metadata
-            //var ms = new Metadata_Store(bundles.ToArray()); //FIXME broken for custom bundle names
+            //var ms = new Metadata_Store(bundles.ToArray()); 
+            //FIXME broken for custom bundle names because of reparenting bundleItems 
+            //and new bundles in memory don't have filepaths
+            //which are needed to compress files since trade used a memorymapped stream
             var ms = new Metadata_Store(bundleDir);
             ms.Write(bundleDir);
 
