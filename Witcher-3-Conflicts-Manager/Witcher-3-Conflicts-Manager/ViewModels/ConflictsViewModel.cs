@@ -20,6 +20,7 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
     public class ConflictsViewModel : ViewModel
     {
         private const string modPatchName = "mod0000_PatchedFiles";
+        private readonly string[] hiddenExts = new string[] { "xml", "csv", "xbm" };
 
         public ConflictsViewModel()
         {
@@ -29,7 +30,7 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
             ShowSettingsCommand = new RelayCommand(ShowSettings, CanShowSettings);
 
             //<baseGame>\bin\x64\witcher3.exe
-            BaseGameDir = Path.GetFullPath(Path.Combine(Properties.Settings.Default.TW3_Path, @"..\..\"));
+            BaseGameDir = Path.GetFullPath(Path.Combine(Properties.Settings.Default.TW3_Path, @"..\..\..\"));
             ModDir = Path.Combine(BaseGameDir, @"Mods");
 
             //Load conflicts list
@@ -104,9 +105,10 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
             */
 
             
-            List<IWitcherFile> patchFiles = ConflictsList.Select(x => x.ResolvedFile()).ToList();
-            List<IWitcherFile> bufferFiles = patchFiles.Where(_ => _.Name.Split('.').Last() == "buffer").ToList();
-            List<IWitcherFile> blobFiles = patchFiles.Where(_ => _.Name.Split('.').Last() != "buffer").ToList();
+            List<IWitcherFileWrapper> patchFiles = ConflictsList.Select(x => x.ResolvedFile()).ToList();
+            List<IWitcherFile> blobFiles = patchFiles.Select(_ => _.File).ToList();
+            List<IWitcherFile> bufferFiles = patchFiles.Select(_ => _.Buffer).Where(_ => _ != null).ToList();
+            
 
             //create bundle
             string bundleDir = Path.Combine(ModDir, modPatchName, "content");
@@ -115,10 +117,10 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
             //blob
             List<Bundle> bundles = new List<Bundle>();
             if (blobFiles.Count > 0)
-                bundles.Add( new Bundle("pblob0", blobFiles.ToArray()));
+                bundles.Add( new Bundle(blobFiles.ToArray()));
             //buffers
             if (bufferFiles.Count > 0)
-                bundles.Add(new Bundle("pbuffers0", bufferFiles.ToArray()));
+                bundles.Add(new Bundle(bufferFiles.ToArray()));
             foreach (var b in bundles)
                 b.Write(bundleDir);
                 
@@ -155,17 +157,47 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
             List<string> allFiles = new List<string>();
             List<string> allBundles = new List<string>();
 
-            allBundles = Directory.GetFiles(ModDir, "blob0.bundle", SearchOption.AllDirectories).ToList();
-            allBundles.AddRange(Directory.GetFiles(ModDir, "buffers0.bundle", SearchOption.AllDirectories).ToList());
+            
+            allBundles = Directory.GetFiles(ModDir, "*.bundle", SearchOption.AllDirectories).ToList();
             BundleManager bm = new BundleManager();
             foreach (var bundle in allBundles)
-                bm.LoadBundle(bundle);
+            {
+                //exclude modPatchName directory
+                if (!bundle.Contains(modPatchName))
+                    bm.LoadBundle(bundle);
+            }
+                
 
             List<KeyValuePair<string, List<IWitcherFile>>> allConflicts = bm.Items.Where(kvp => kvp.Value.Count > 1).ToList();
+            
 
             //cast to tw3conflict
             foreach (var c in allConflicts)
             {
+                string ext = c.Key.Split('\\').Last().Split('.').Last();
+                if (hiddenExts.Contains(ext))
+                    continue;
+
+                //FIXME
+                // list of conflicting buffers
+                if (ext == "buffer")
+                {
+                    List<IWitcherFile> buffers = c.Value;
+                    string parentfilename = c.Key.Substring(0,c.Key.Length - 9); //FIXME trim ".1.buffer"
+                    parentfilename = parentfilename.Split('\\').Last();
+                    //list of files for buffers
+                    var parentfiles = ConflictsList.First(_ => _.Name == parentfilename).Items.ToList();
+                    //find matching parent 
+                    foreach (var f in buffers)
+                    {
+                        var splits = f.Bundle.FileName.Split('\\').ToList();
+                        var modname = splits.Where(_ => _.Length >= 3).First(_ => _.Substring(0, 3) == "mod");
+
+                        parentfiles.First(_ => _.ToString() == modname).Buffer = f;
+                    }
+                    continue;
+                }
+
                 List<IWitcherFileWrapper> filesAsViewModel = new List<IWitcherFileWrapper>();
                 foreach (var wf in c.Value)
                     filesAsViewModel.Add(new IWitcherFileWrapper { File=wf});
@@ -173,7 +205,7 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
                 IConflictWrapper tw3Conflict = new IConflictWrapper
                 {
                     Name = c.Key.Split('\\').Last(),
-                    Category = c.Key.Split('\\').Last().Split('.').Last(), //extension
+                    Category = ext, //extension
                     Items = filesAsViewModel
                 };
                 ConflictsList.Add(tw3Conflict);

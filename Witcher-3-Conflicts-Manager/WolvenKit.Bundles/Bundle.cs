@@ -48,12 +48,28 @@ namespace WolvenKit.Bundles
         {
 
         }
-        public Bundle(string name, params IWitcherFile[] Files)
+        public Bundle(string FilePath)
         {
-            Name = $"{name}.bundle";
+            Read(FilePath);
+        }
+        public Bundle(IWitcherFile[] Files)
+        {
             Read(Files);
+
+            //check for buffers
+            var bufferCount = ItemsList.Where(_ => _.Name.Split('\\').Last().Split('.').Last() == "buffer").ToList().Count;
+            if (bufferCount > 0)
+            {
+                if (bufferCount == ItemsList.Count)
+                    Name = "buffers0.bundle";
+                else
+                    throw new InvalidBundleException("Buffers and files mixed in one bundle.");
+            }
+            else
+                Name = "blob0.bundle";
         }
 
+        
         
         
         /// <summary>
@@ -260,9 +276,9 @@ namespace WolvenKit.Bundles
 
             List<Bundle> bundles = new List<Bundle>();
             if (blobFiles.Count > 0)
-                bundles.Add(new Bundle("blob0", blobFiles.ToArray()));
+                bundles.Add(new Bundle(blobFiles.ToArray()));
             if (bufferFiles.Count > 0)
-                bundles.Add(new Bundle("buffers0", bufferFiles.ToArray()));
+                bundles.Add(new Bundle(bufferFiles.ToArray()));
             foreach (var b in bundles)
                 b.Write(outDir);
         }

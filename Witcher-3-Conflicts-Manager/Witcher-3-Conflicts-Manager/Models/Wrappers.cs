@@ -47,6 +47,7 @@ namespace Witcher_3_Conflicts_Manager.Models
             }
         }
         public IWitcherFile File { get; set; }
+        public IWitcherFile Buffer { get; set; }
 
 
 
@@ -120,7 +121,7 @@ namespace Witcher_3_Conflicts_Manager.Models
         /// Returns the selected File from a list of conflicting files. 
         /// </summary>
         /// <returns></returns>
-        public IWitcherFile ResolvedFile() => Items.FirstOrDefault(x => x.IsChecked ?? false)?.File;
+        public IWitcherFileWrapper ResolvedFile() => Items.FirstOrDefault(x => x.IsChecked ?? false);
         #endregion
 
 
