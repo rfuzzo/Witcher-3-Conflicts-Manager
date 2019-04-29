@@ -18,6 +18,10 @@
         </v:SettingsView>
     </DataTemplate>
 
+    <DataTemplate DataType="{x:Type vm:FinishedViewModel}">
+        <v:FinishedView>
 
+        </v:FinishedView>
+    </DataTemplate>
 
 </ResourceDictionary>

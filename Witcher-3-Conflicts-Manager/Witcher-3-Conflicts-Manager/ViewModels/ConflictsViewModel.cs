@@ -37,6 +37,11 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
 
         }
 
+        public void Reload()
+        {
+            ConflictsList.Clear();
+            GetConflictsList();
+        }
         
 
         #region Properties
@@ -122,6 +127,8 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
             //var ms = new Metadata_Store(bundles.ToArray()); //FIXME broken for custom bundle names
             var ms = new Metadata_Store(bundleDir);
             ms.Write(bundleDir);
+
+            ParentViewModel.ShowFinished();
             
         }
 
@@ -166,7 +173,7 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
                 IConflictWrapper tw3Conflict = new IConflictWrapper
                 {
                     Name = c.Key.Split('\\').Last(),
-                    Category = c.Key.Split('\\').First(),
+                    Category = c.Key.Split('\\').Last().Split('.').Last(), //extension
                     Items = filesAsViewModel
                 };
                 ConflictsList.Add(tw3Conflict);

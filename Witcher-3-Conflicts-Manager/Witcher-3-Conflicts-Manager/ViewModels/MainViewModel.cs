@@ -22,6 +22,7 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
     {
         public SettingsViewModel svm { get; set; }
         public ConflictsViewModel cvm { get; set; }
+        public FinishedViewModel fvm { get; set; }
 
         public MainViewModel()
         {
@@ -36,7 +37,10 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
             {
                 ParentViewModel = this
             };
-
+            fvm = new FinishedViewModel
+            {
+                ParentViewModel = this
+            };
 
             //View Manager
             //FIXME
@@ -47,7 +51,7 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
                 )
                 ShowSettings();
             else
-                ShowConflicts();
+                ShowConflicts(false);
         }
 
         
@@ -102,10 +106,22 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
         #endregion
 
         #region Methods
-        public void ShowSettings() => Content = svm;
-        public void ShowConflicts() => Content = cvm;
+        public void ShowSettings()
+        {
+            Content = svm;
+        }
 
+        public void ShowConflicts(bool reload)
+        {
+            Content = cvm;
+            if (reload)
+                cvm.Reload();
+        }
 
+        public void ShowFinished()
+        {
+            Content = fvm;
+        }
 
 
         #endregion

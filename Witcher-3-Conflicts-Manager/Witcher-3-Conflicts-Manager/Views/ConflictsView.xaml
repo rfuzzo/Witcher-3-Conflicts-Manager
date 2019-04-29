@@ -176,7 +176,7 @@
                     HorizontalAlignment="Stretch"
                     VerticalAlignment="Stretch">
                     <TextBlock Style="{DynamicResource ButtonText}">
-                        PATCH
+                        Patch
                     </TextBlock>
                 </Grid>
             </Button>
