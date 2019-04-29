@@ -33,10 +33,6 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
             {
                 ParentViewModel = this
             };
-            cvm = new ConflictsViewModel
-            {
-                ParentViewModel = this
-            };
             fvm = new FinishedViewModel
             {
                 ParentViewModel = this
@@ -113,9 +109,17 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
 
         public void ShowConflicts(bool reload)
         {
-            Content = cvm;
+            
             if (reload)
                 cvm.Reload();
+            else
+            {
+                var cvm = new ConflictsViewModel
+                {
+                    ParentViewModel = this
+                };
+                Content = cvm;
+            }
         }
 
         public void ShowFinished()

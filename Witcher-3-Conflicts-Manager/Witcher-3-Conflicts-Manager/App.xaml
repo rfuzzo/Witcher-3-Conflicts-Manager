@@ -27,7 +27,7 @@
 
             <!--  Modpack strings  -->
             <clr:String x:Key="AppName">Conflicts Manager</clr:String>
-            <clr:String x:Key="Description">Locate the Modkit and the Game to get started!</clr:String>
+            <clr:String x:Key="Description">Locate the Game to get started!</clr:String>
             <clr:String x:Key="AppVersion">_</clr:String>
 
         </ResourceDictionary>

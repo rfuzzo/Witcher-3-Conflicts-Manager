@@ -72,11 +72,12 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
 
         private bool CanNext()
         {
-            return !String.IsNullOrEmpty(Properties.Settings.Default.WCC_Path) &&
+            /*return !String.IsNullOrEmpty(Properties.Settings.Default.WCC_Path) &&
                 !String.IsNullOrEmpty(Properties.Settings.Default.TW3_Path) &&
                 File.Exists(Properties.Settings.Default.WCC_Path) &&
-                File.Exists(Properties.Settings.Default.TW3_Path);
-
+                File.Exists(Properties.Settings.Default.TW3_Path);*/
+            return !String.IsNullOrEmpty(Properties.Settings.Default.TW3_Path) &&
+            File.Exists(Properties.Settings.Default.TW3_Path);
         }
         private void Next()
         {
