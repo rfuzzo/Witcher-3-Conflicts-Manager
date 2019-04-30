@@ -19,32 +19,24 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
 
     public class MainViewModel : ViewModel
     {
-        public SettingsViewModel svm { get; set; }
-        public ConflictsViewModel cvm { get; set; }
-        public FinishedViewModel fvm { get; set; }
+        public Dictionary<string,ViewModel> ViewModels;
 
         public MainViewModel()
         {
-            //ConfigService = configService;
-            //Logger = logger;
+            ViewModels = new Dictionary<string, ViewModel>();
+            ViewModels.Add("init", new InitViewModel { ParentViewModel = this });
+            ViewModels.Add("settings", new SettingsViewModel { ParentViewModel = this });
+            ViewModels.Add("finished", new FinishedViewModel { ParentViewModel = this });
+            ViewModels.Add("conflicts", new ConflictsViewModel { ParentViewModel = this });
 
-            svm = new SettingsViewModel
-            {
-                ParentViewModel = this
-            };
-            fvm = new FinishedViewModel
-            {
-                ParentViewModel = this
-            };
 
             //View Manager
-            //FIXME
             if (String.IsNullOrEmpty(Properties.Settings.Default.TW3_Path) ||
                 !File.Exists(Properties.Settings.Default.TW3_Path)
                 )
-                ShowSettings();
+                ShowInit();
             else
-                ShowConflicts(false);
+                ShowConflicts(true);
         }
 
         
@@ -73,7 +65,6 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
         #endregion
 
         #region Commands
-        //public ICommand ExitCommand { get; }
         //public ICommand StartGameCommand { get; }
 
 
@@ -101,32 +92,22 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
         #region Methods
         public void ShowSettings()
         {
+            var svm = (SettingsViewModel)ViewModels["settings"];
+            svm.Reload();
             Content = svm;
         }
 
+        public void ShowFinished() => Content = ViewModels["finished"];
+        public void ShowInit() => Content = ViewModels["init"];
+
         public void ShowConflicts(bool reload)
         {
-            
+            var cvm = (ConflictsViewModel)ViewModels["conflicts"];
             if (reload)
-                cvm.Reload();
-            else
-            {
-                if (cvm == null)
-                {
-                    var vm = new ConflictsViewModel
-                    {
-                        ParentViewModel = this
-                    };
-                    cvm = vm;
-                }
-            }
+                cvm.Refresh();
             Content = cvm;
         }
 
-        public void ShowFinished()
-        {
-            Content = fvm;
-        }
 
 
         #endregion

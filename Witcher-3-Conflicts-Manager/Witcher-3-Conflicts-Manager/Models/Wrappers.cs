@@ -1,13 +1,84 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
+using WolvenKit.Bundles;
 using WolvenKit.Common;
 
 namespace Witcher_3_Conflicts_Manager.Models
 {
+
+    /// <summary>
+    /// Wrapper Class for Bundles
+    /// </summary>
+    public class IBundleWrapper : ObservableObject
+    {
+        public IBundleWrapper(IWitcherArchive bundle)
+        {
+            Bundle = bundle;
+        }
+
+        private string _modName;
+        public string ModName
+        {
+            get => _modName;
+            set
+            {
+                if (_modName != value)
+                {
+                    _modName = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        public IWitcherArchive Bundle { get; set; }
+
+        public override string ToString()
+        {
+            return Bundle.ToString();
+        }
+    }
+
+    /// <summary>
+    /// Wrapper Class for Mods
+    /// </summary>
+    public class IModWrapper : ObservableObject
+    {
+        public IModWrapper(DirectoryInfo dir)
+        {
+            IsSelected = true;
+            Dir = dir;
+        }
+
+        private bool? _isSelected;
+        public bool? IsSelected
+        {
+            get => _isSelected;
+            set
+            {
+                if (_isSelected != value)
+                {
+                    _isSelected = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        public DirectoryInfo Dir { get; set; }
+        public List<Bundle> Bundles { get; set; }
+
+        public override string ToString()
+        {
+            return Dir.Name;
+        }
+    }
+
+
+
     /// <summary>
     /// Wrapper Class for one conflicting file for displaying in a Radio-button List.
     /// </summary>

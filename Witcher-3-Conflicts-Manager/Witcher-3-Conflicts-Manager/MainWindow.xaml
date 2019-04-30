@@ -12,7 +12,8 @@
         Height="500" 
         Width="400"
         
-        Background="BlueViolet"
+        Background="#9B4FFF"
+        
         MinHeight="600"
         MinWidth="850"
         

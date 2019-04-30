@@ -25,31 +25,21 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
         public ConflictsViewModel()
         {
             ConflictsList = new ObservableCollection<IConflictWrapper>();
+            ModsList = new ObservableCollection<IModWrapper>();
+            ConflictsList = new ObservableCollection<IConflictWrapper>();
 
             PatchCommand = new RelayCommand(Patch, CanPatch);
-            ShowSettingsCommand = new RelayCommand(ShowSettings, CanShowSettings);
+            ShowSettingsCommand = new RelayCommand(ShowSettings);
+            RefreshCommand = new RelayCommand(Refresh);
 
-            //<baseGame>\bin\x64\witcher3.exe
-            BaseGameDir = Path.GetFullPath(Path.Combine(Properties.Settings.Default.TW3_Path, @"..\..\..\"));
-            ModDir = Path.Combine(BaseGameDir, @"Mods");
-
-            //Load conflicts list
-            GetConflictsList();
-
+            //Refresh();
         }
-
-        public void Reload()
-        {
-            ConflictsList.Clear();
-            GetConflictsList();
-        }
-        
 
         #region Properties
         public MainViewModel ParentViewModel { get; set; }
         public ObservableCollection<IConflictWrapper> ConflictsList { get; set; }
+        public ObservableCollection<IModWrapper> ModsList { get; set; }
 
-       
         private IConflictWrapper _selectedConflict;
         public IConflictWrapper SelectedConflict
         {
@@ -63,15 +53,37 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
                 }
             }
         }
+        private IModWrapper _selectedValue;
+        public IModWrapper SelectedValue
+        {
+            get => _selectedValue;
+            set
+            {
+                if (_selectedValue != value)
+                {
+                    _selectedValue = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        public List<Bundle> SelectedBundles
+        {
+            get
+            {
+                return ModsList.Where(_ => _.IsSelected == true).SelectMany(_ => _.Bundles).ToList();
+            }
+        }
+
 
         private string ModDir { get; set; }
         private string BaseGameDir { get; set; }
         #endregion
 
-
         #region Commands
         public ICommand PatchCommand { get; }
         public ICommand ShowSettingsCommand { get; }
+        public ICommand RefreshCommand { get; }
 
 
 
@@ -139,11 +151,7 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
             
         }
 
-        /// <summary>
-        /// Returns true if displaying Settings is allowed.
-        /// </summary>
-        /// <returns></returns>
-        public bool CanShowSettings() => true;
+
         /// <summary>
         /// Switches the view to SettingsView.
         /// </summary>
@@ -154,66 +162,113 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
 
         #region Methods
         /// <summary>
+        /// 
+        /// </summary>
+        public void Refresh()
+        {
+            //<baseGame>\bin\x64\witcher3.exe
+            BaseGameDir = Path.GetFullPath(Path.Combine(Properties.Settings.Default.TW3_Path, @"..\..\..\"));
+            ModDir = Path.Combine(BaseGameDir, @"Mods");
+
+            LoadMods();
+
+            ReloadConflictsList();
+        }
+        /// <summary>
+        /// 
+        /// </summary>
+        private void LoadMods()
+        {
+            ModsList.Clear();
+
+            //load mods with bundles
+            DirectoryInfo di = new DirectoryInfo(ModDir);
+            List<DirectoryInfo> mods = di.GetDirectories("mod*", SearchOption.TopDirectoryOnly).Where(_ => _.Name != modPatchName).ToList();
+            foreach (var mdi in mods)
+            {
+                try
+                {
+                    var mw = new IModWrapper(mdi);
+                    var bundles = mdi.GetFiles("*.bundle", SearchOption.AllDirectories).ToList();
+                    mw.Bundles = bundles.Select(_ => new Bundle(_.FullName)).ToList();
+                    ModsList.Add(mw);
+                }
+                catch (Exception)
+                {
+                    //failed to load mod, skipping
+                    throw;
+                }
+            }
+        }
+
+        /// <summary>
         /// Load all bundles in the games Mods folder and selects the conflicting files.
         /// </summary>
-        private void GetConflictsList()
+        public void ReloadConflictsList()
         {
-            //read out all bundles
-            List<string> allFiles = new List<string>();
-            List<string> allBundles = new List<string>();
+            ConflictsList.Clear();
 
-            
-            allBundles = Directory.GetFiles(ModDir, "*.bundle", SearchOption.AllDirectories).ToList();
-            BundleManager bm = new BundleManager();
-            foreach (var bundle in allBundles)
+            //read conflicts for checked mods
+            var Items = new Dictionary<string, List<IWitcherFile>>();
+            foreach (var b in SelectedBundles)
             {
-                //exclude modPatchName directory
-                if (!bundle.Contains(modPatchName))
-                    bm.LoadBundle(bundle);
-            }
-                
+                foreach (var item in b.Items)
+                {
+                    if (!Items.ContainsKey(item.Key))
+                        Items.Add(item.Key, new List<IWitcherFile>());
 
-            List<KeyValuePair<string, List<IWitcherFile>>> allConflicts = bm.Items.Where(kvp => kvp.Value.Count > 1).ToList();
-            
+                    Items[item.Key].Add(item.Value);
+                }
+            }
+            var allConflicts = new List<KeyValuePair<string, List<IWitcherFile>>>();
+            allConflicts = Items.Where(kvp => kvp.Value.Count > 1).ToList();
 
             //cast to tw3conflict
             foreach (var c in allConflicts)
             {
-                string ext = c.Key.Split('\\').Last().Split('.').Last();
-                if (hiddenExts.Contains(ext))
-                    continue;
-
-                //FIXME
-                // list of conflicting buffers
-                if (ext == "buffer")
+                try
                 {
-                    List<IWitcherFile> buffers = c.Value;
-                    string parentfilename = c.Key.Substring(0,c.Key.Length - 9); //FIXME trim ".1.buffer"
-                    parentfilename = parentfilename.Split('\\').Last();
-                    //list of files for buffers
-                    var parentfiles = ConflictsList.First(_ => _.Name == parentfilename).Items.ToList();
-                    //find matching parent 
-                    foreach (var f in buffers)
-                    {
-                        var splits = f.Bundle.FileName.Split('\\').ToList();
-                        var modname = splits.Where(_ => _.Length >= 3).First(_ => _.Substring(0, 3) == "mod");
+                    string ext = c.Key.Split('\\').Last().Split('.').Last();
+                    if (hiddenExts.Contains(ext))
+                        continue;
 
-                        parentfiles.First(_ => _.ToString() == modname).Buffer = f;
+                    //FIXME
+                    // list of conflicting buffers
+                    if (ext == "buffer")
+                    {
+                        List<IWitcherFile> buffers = c.Value;
+                        string parentfilename = c.Key.Substring(0, c.Key.Length - 9); //FIXME trim ".1.buffer"
+                        parentfilename = parentfilename.Split('\\').Last();
+                        //list of files for buffers
+                        var parentfiles = ConflictsList.First(_ => _.Name == parentfilename).Items.ToList();
+                        //find matching parent 
+                        foreach (var f in buffers)
+                        {
+                            var splits = f.Bundle.FileName.Split('\\').ToList();
+                            var modname = splits.Where(_ => _.Length >= 3).First(_ => _.Substring(0, 3) == "mod");
+
+                            parentfiles.First(_ => _.ToString() == modname).Buffer = f;
+                        }
+                        continue;
                     }
+
+                    List<IWitcherFileWrapper> filesAsViewModel = new List<IWitcherFileWrapper>();
+                    foreach (var wf in c.Value)
+                        filesAsViewModel.Add(new IWitcherFileWrapper { File = wf });
+
+                    IConflictWrapper tw3Conflict = new IConflictWrapper
+                    {
+                        Name = c.Key.Split('\\').Last(),
+                        Category = ext, //extension
+                        Items = filesAsViewModel
+                    };
+                    ConflictsList.Add(tw3Conflict);
+                }
+                catch (Exception)
+                {
+                    //failed to add conflict, skipping
                     continue;
                 }
-
-                List<IWitcherFileWrapper> filesAsViewModel = new List<IWitcherFileWrapper>();
-                foreach (var wf in c.Value)
-                    filesAsViewModel.Add(new IWitcherFileWrapper { File=wf});
-
-                IConflictWrapper tw3Conflict = new IConflictWrapper
-                {
-                    Name = c.Key.Split('\\').Last(),
-                    Category = ext, //extension
-                    Items = filesAsViewModel
-                };
-                ConflictsList.Add(tw3Conflict);
             }
         }
 

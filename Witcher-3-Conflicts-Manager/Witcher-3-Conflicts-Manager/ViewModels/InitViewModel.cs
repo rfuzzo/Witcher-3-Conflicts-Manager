@@ -10,20 +10,14 @@ using Witcher_3_Conflicts_Manager.Commands;
 
 namespace Witcher_3_Conflicts_Manager.ViewModels
 {
-    public class SettingsViewModel : ViewModel
+    public class InitViewModel : ViewModel
     {
-        public SettingsViewModel()
+        public InitViewModel()
         {
-            SaveCommand = new RelayCommand(Save);
-            CancelCommand = new RelayCommand(Cancel);
+            NextCommand = new RelayCommand(Next, CanNext);
             LocateTW3Command = new RelayCommand(LocateTW3);
             LocateWCCCommand = new RelayCommand(LocateWCC);
 
-            Reload();
-        }
-
-        public void Reload()
-        {
             WCC_Path = Properties.Settings.Default.WCC_Path;
             TW3_Path = Properties.Settings.Default.TW3_Path;
         }
@@ -66,8 +60,7 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
 
 
         #region Commands
-        public ICommand SaveCommand { get; }
-        public ICommand CancelCommand { get; }
+        public ICommand NextCommand { get; }
         public ICommand LocateTW3Command { get; }
         public ICommand LocateWCCCommand { get; }
 
@@ -77,15 +70,19 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
 
 
 
-        private void Save()
+        private bool CanNext()
+        {
+            /*return !String.IsNullOrEmpty(Properties.Settings.Default.WCC_Path) &&
+                !String.IsNullOrEmpty(Properties.Settings.Default.TW3_Path) &&
+                File.Exists(Properties.Settings.Default.WCC_Path) &&
+                File.Exists(Properties.Settings.Default.TW3_Path);*/
+            return !String.IsNullOrEmpty(Properties.Settings.Default.TW3_Path) &&
+            File.Exists(Properties.Settings.Default.TW3_Path);
+        }
+        private void Next()
         {
             Properties.Settings.Default.Save();
-
-            ParentViewModel.ShowConflicts(false);
-        }
-        private void Cancel()
-        {
-            ParentViewModel.ShowConflicts(false);
+            ParentViewModel.ShowConflicts(true);
         }
 
         public void LocateTW3()
@@ -100,8 +97,6 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
             if (result == true)
             {
                 TW3_Path = dlg.FileName;
-
-                Properties.Settings.Default.Save();
             }
 
 

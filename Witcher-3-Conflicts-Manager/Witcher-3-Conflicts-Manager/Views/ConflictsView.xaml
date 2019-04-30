@@ -6,6 +6,7 @@
              xmlns:local="clr-namespace:Witcher_3_Conflicts_Manager.Views"
              xmlns:scm="clr-namespace:System.ComponentModel;assembly=WindowsBase"
              xmlns:dat="clr-namespace:System.Windows.Data;assembly=PresentationFramework"
+             xmlns:xctk="http://schemas.xceed.com/wpf/xaml/toolkit"
              
              mc:Ignorable="d" 
              d:DesignHeight="450" d:DesignWidth="800">
@@ -55,14 +56,14 @@
         <Grid.RowDefinitions>
             <!-- MainLayout -->
             <RowDefinition Height="*"/>
-            <!-- MenuBar -->
-            <RowDefinition Height="auto"/>
+            <!-- Lower Bar -->
+            <RowDefinition Height="96"/>
         </Grid.RowDefinitions>
 
 
 
         <!-- Main Layout -->
-        <Grid Grid.Row="0" Margin="0,30,0,10">
+        <Grid Grid.Row="0" Margin="0,30,0,20">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="40"/>
@@ -78,14 +79,38 @@
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
 
-                <!--  Title  -->
-                <TextBlock Grid.Row="0"
-                Margin="0,0,0,0"
-                HorizontalAlignment="Left"
-                FontSize="20"
-                FontWeight="Bold"
-                Style="{DynamicResource HeaderText}"
-                Text="Conflicts" />
+                <Grid Grid.Row="0">
+                    <!--  Title  -->
+                    <TextBlock 
+                    Margin="0,0,0,0"
+                    HorizontalAlignment="Left"
+                    FontSize="20"
+                    FontWeight="Bold"
+                    Style="{DynamicResource HeaderText}"
+                    Text="Conflicts" />
+
+
+                    <!--  Mod Selection  -->
+                    <ComboBox x:Name="_combo" ItemsSource="{Binding ModsList, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                             SelectionChanged="OnCbObjectsSelectionChanged"
+                             HorizontalAlignment="Right" 
+                             VerticalAlignment="Center" 
+                             Width="128"
+                             IsEditable="False"
+                             IsReadOnly="True"
+                              >
+                        
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal">
+                                    <CheckBox IsChecked="{Binding IsSelected}" Width="20" Checked="OnCbObjectCheckBoxChecked" Unchecked="OnCbObjectCheckBoxChecked"/>
+                                    <TextBlock Text="{Binding}" Width="100" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </Grid>
+                
 
                 <!--  List  -->
                 <ListView Grid.Row="1"
@@ -95,12 +120,7 @@
                       Margin="0,10,0,0"
                       >
                 
-                    <!--context  Menu-->
-                    <ListView.ContextMenu>
-                        <ContextMenu>
-                            <MenuItem Header="Select for all conflicts" Command="{Binding SelectForAll}"  />
-                        </ContextMenu>
-                    </ListView.ContextMenu>
+                    
 
                     <!-- grouping -->
                     <ListView.GroupStyle>
@@ -156,19 +176,20 @@
 
         </Grid>
 
-        <Grid Grid.Row="1">
+        <Grid Grid.Row="1" Margin="0,0,0,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="auto"/>
+                <ColumnDefinition Width="128"/>
             </Grid.ColumnDefinitions>
 
-            <!--  Next Button  -->
+            <!--  Patch Button  -->
             <Button
                 Grid.Column="0"
                 Height="40"
-                Margin="40,0,0,20"
+                Width="96"
+                Margin="128,0,0,0"
                 HorizontalAlignment="Center"
-                VerticalAlignment="Bottom"
+                VerticalAlignment="Center"
                 Command="{Binding PatchCommand}"
             >
                 <Grid
@@ -181,17 +202,34 @@
                 </Grid>
             </Button>
 
-            <Button Grid.Column="1" 
-                    Height="40"
-                    Margin="0,0,0,20"
-                    Background="Transparent" 
-                    BorderBrush="Transparent"
-                    Command="{Binding ShowSettingsCommand}"
-                    >
-                <Image Source="/Resources/Icons/Settings_16x.png"/>
+            <Grid Grid.Column="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                
+                <!-- Refresh -->
+                <Button Grid.Column="0" 
+                        Height="40"
+                        Margin="0,0,0,0"
+                        Background="Transparent" 
+                        BorderBrush="Transparent"
+                        Command="{Binding RefreshCommand}"
+                        >
+                    <Image Source="/Resources/Icons/Refresh_16x.png"/>
+                </Button>
+                <!-- Settings -->
+                <Button Grid.Column="1"
+                        Height="40"
+                        Margin="0,0,0,0"
+                        Background="Transparent" 
+                        BorderBrush="Transparent"
+                        Command="{Binding ShowSettingsCommand}"
+                        >
+                    <Image Source="/Resources/Icons/Settings_16x.png"/>
+                </Button>
 
-            </Button>
-
+            </Grid>
 
         </Grid>
 

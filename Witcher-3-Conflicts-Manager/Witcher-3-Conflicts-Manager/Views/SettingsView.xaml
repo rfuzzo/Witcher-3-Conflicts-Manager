@@ -13,16 +13,14 @@
             <!-- Image -->
             <RowDefinition Height="auto"/>
             <!-- Path 1 -->
-            <RowDefinition Height="auto"/>
-            <!-- Path 2 -->
-            <RowDefinition Height="auto"/>
             <RowDefinition Height="*"/>
+            <RowDefinition Height="96"/>
         </Grid.RowDefinitions>
 
         <!--  Header  -->
-        <StackPanel Grid.Row="0">
+        <StackPanel Grid.Row="0" Margin="0,0,0,0">
             <Image
-                Width="100"
+                Width="80"
                 Margin="0,20,0,0"
                 RenderOptions.BitmapScalingMode="Fant"
                 RenderOptions.EdgeMode="Aliased"
@@ -30,62 +28,92 @@
 
             <!--  Title  -->
             <TextBlock
-                Margin="0,20,0,0"
+                Margin="0,10,0,10"
                 HorizontalAlignment="Center"
                 FontSize="30"
                 FontWeight="Bold"
                 Style="{DynamicResource HeaderText}"
-                Text="{DynamicResource AppName}" />
+                Text="Settings" />
 
-            <!--  Description  -->
-            <TextBlock
-                Grid.Row="1"
-                Margin="10,10,10,30"
-                FontSize="15"
-                Style="{DynamicResource BodyText}"
-                Text="{DynamicResource Description}"
-                TextAlignment="Center" />
+            
         </StackPanel>
 
         <!--Text fields  -->
-        <!-- TW3  -->
-        <Grid Grid.Row="1" 
-                        Margin="20,3,20,3">
+        <StackPanel Grid.Row="1" Margin="0,20,0,0">
+            <Grid Margin="20,0,20,0" VerticalAlignment="Center">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="auto"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Column="0" 
+                       Text="{Binding TW3_Path}" 
+                       Background="LightGray" 
+                       TextAlignment="Left"
+                       Margin="0,0,5,0"
+                       Padding="3"
+                       FontSize="16"
+                        />
+
+                <Button Grid.Column="1" Content="..."  
+                        Command="{Binding LocateTW3Command}"
+                        />
+            </Grid>
+            
+            
+        </StackPanel>
+
+
+        <Grid Grid.Row="2" Margin="0,0,0,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="auto"/>
             </Grid.ColumnDefinitions>
 
-            <TextBlock Grid.Column="0" 
-                       Text="{Binding TW3_Path}" 
-                       Background="LightGray" 
-                       TextAlignment="Left"
-                       VerticalAlignment="Center"
-                       Margin="0,0,5,0"
-                       Padding="5"/>
-            
-            <Button Grid.Column="1" Content="..."  Command="{Binding LocateTW3Command}"/>
-        </Grid>
-        
-
-        <!--  Next Button  -->
-        <Button
-                Grid.Row="3"
+            <!--  Patch Button  -->
+            <Button
+                Grid.Column="0"
                 Height="40"
-                Margin="0,0,0,30"
+                Width="96"
+                Margin="64,0,0,0"
                 HorizontalAlignment="Center"
-                VerticalAlignment="Bottom"
-                Command="{Binding NextCommand}"
+                VerticalAlignment="Center"
+                Command="{Binding SaveCommand}"
             >
-            <Grid
+                <Grid
                     Margin="10,0,10,0"
                     HorizontalAlignment="Stretch"
                     VerticalAlignment="Stretch">
-                <TextBlock Style="{DynamicResource ButtonText}">
-                        Next
-                </TextBlock>
+                    <TextBlock Style="{DynamicResource ButtonText}">
+                        Save
+                    </TextBlock>
+                </Grid>
+            </Button>
+
+            <Grid Grid.Column="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                
+                <!-- Settings -->
+                <Button Grid.Column="1"
+                        Height="40"
+                        Margin="0,0,0,0"
+                        Background="Transparent" 
+                        BorderBrush="Transparent"
+                        Command="{Binding CancelCommand}"
+                        >
+                    <Image Source="/Resources/Icons/Settings_16x.png"/>
+                </Button>
+
             </Grid>
-        </Button>
+
+        </Grid>
+
+
+        
 
     </Grid>
 

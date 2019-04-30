@@ -24,5 +24,22 @@ namespace Witcher_3_Conflicts_Manager.Views
         {
             InitializeComponent();
         }
+
+
+        private void OnCbObjectsSelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            ComboBox comboBox = (ComboBox)sender;
+            comboBox.SelectedItem = null;
+        }
+
+        private void OnCbObjectCheckBoxChecked(object sender, RoutedEventArgs e)
+        {
+            StringBuilder sb = new StringBuilder();
+            foreach (object cbObject in _combo.Items)
+            {
+                ((ViewModels.ConflictsViewModel)DataContext).ReloadConflictsList();
+            }
+            
+        }
     }
 }
