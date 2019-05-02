@@ -1,11 +1,18 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using Witcher_3_Conflicts_Manager.Commands;
 using WolvenKit.Bundles;
+using WolvenKit.Cache;
 using WolvenKit.Common;
 
 namespace Witcher_3_Conflicts_Manager.Models
@@ -70,6 +77,7 @@ namespace Witcher_3_Conflicts_Manager.Models
 
         public DirectoryInfo Dir { get; set; }
         public List<Bundle> Bundles { get; set; }
+        public List<TextureCache> Caches { get; set; } //FIXME
 
         public override string ToString()
         {
@@ -88,7 +96,8 @@ namespace Witcher_3_Conflicts_Manager.Models
         {
             IsChecked = false;
         }
-        
+
+        #region Properties
         public FontWeight FontWeight
         {
             get
@@ -119,15 +128,12 @@ namespace Witcher_3_Conflicts_Manager.Models
         }
         public IWitcherFile File { get; set; }
         public IWitcherFile Buffer { get; set; }
-
-
+        public ImageSource Image { get; set; }
+        #endregion
 
         public override string ToString()
         {
-            var splits = File.Bundle.FileName.Split('\\').ToList();
-            var modname = splits.Where(_ => _.Length >= 3).First(_ => _.Substring(0, 3) == "mod");
-
-            return modname;
+            return File.Bundle.FileName.Split('\\').Where(_ => _.Length >= 3).First(_ => _.Substring(0, 3) == "mod");
         }
 
     }
@@ -167,8 +173,8 @@ namespace Witcher_3_Conflicts_Manager.Models
             }
         }
 
-        private List<IWitcherFileWrapper> _items;
-        public List<IWitcherFileWrapper> Items
+        private ObservableCollection<IWitcherFileWrapper> _items;
+        public ObservableCollection<IWitcherFileWrapper> Items
         {
             get => _items;
             set

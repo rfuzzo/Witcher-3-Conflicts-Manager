@@ -66,7 +66,7 @@
         <Grid Grid.Row="0" Margin="0,30,0,20">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="40"/>
+                <ColumnDefinition Width="5"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
@@ -91,13 +91,14 @@
 
 
                     <!--  Mod Selection  -->
-                    <ComboBox x:Name="_combo" ItemsSource="{Binding ModsList, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                    <ComboBox x:Name="_combo" ItemsSource="{Binding ConflictingMods, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                              SelectionChanged="OnCbObjectsSelectionChanged"
                              HorizontalAlignment="Right" 
                              VerticalAlignment="Center" 
                              Width="128"
                              IsEditable="False"
                              IsReadOnly="True"
+                              Background="LightGray"
                               >
                         
                         <ComboBox.ItemTemplate>
@@ -109,6 +110,8 @@
                             </DataTemplate>
                         </ComboBox.ItemTemplate>
                     </ComboBox>
+
+                    <TextBlock Text="-- Select Mods --" Margin="17,3" IsHitTestVisible="False" HorizontalAlignment="Right" VerticalAlignment="Center"/>
                 </Grid>
                 
 
@@ -131,12 +134,16 @@
                 </ListView>
             </Grid>
 
+            <!-- Grid Splitter -->
+            <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Stretch" />
+            
             <!-- Right Grid -->
             <Grid Grid.Column="2" >
                 <Grid.RowDefinitions>
                     <!-- Header -->
                     <RowDefinition Height="auto"/>
                     <!-- Content -->
+                    <RowDefinition Height="100"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
 
@@ -152,25 +159,35 @@
                 <!--  List  -->
                 <ListView Grid.Row="1"
                           ItemsSource="{Binding SelectedConflict.Items, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                          SelectedItem="{Binding SelectedFile, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                           Margin="0,10,0,0"
                           Background="Transparent"
                           >
                     <ListView.ItemTemplate>
                         <DataTemplate>
-                            <RadioButton 
+                            <RadioButton IsHitTestVisible="True"
                                          GroupName="Group"
                                          IsChecked="{Binding IsChecked, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                          FontWeight="{Binding FontWeight}"
                                          Foreground="White"
-                                         
                                          VerticalContentAlignment="Center"
+                                         Command="{Binding DataContext.IsSelectedCommand, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type local:ConflictsView}}}"
+                                         CommandParameter="{Binding}"
+                                         Content="{Binding}"
                                          >
-                                <TextBlock Text="{Binding}"  Margin="0,-5,0,0" FontSize="16"/>
+
                             </RadioButton>
                         </DataTemplate>
                     </ListView.ItemTemplate>
+                   
                 </ListView>
 
+                <Image Grid.Row="2" 
+                       Source="{Binding SelectedFile.Image, Mode=OneWay, UpdateSourceTrigger=PropertyChanged}"
+                       VerticalAlignment="Stretch"
+                       
+                       />
+                
             </Grid>
 
 

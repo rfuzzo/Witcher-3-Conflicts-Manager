@@ -158,7 +158,7 @@ namespace WolvenKit.Bundles
             
 
             var stOffsetDict = new Dictionary<string, uint>();
-            var _entries = new List<IWitcherFile>();
+            var _entries = new List<BundleItem>();
 
             var _entryNames = new List<string>();
             var _bufferNames = new List<string>();
@@ -299,7 +299,7 @@ namespace WolvenKit.Bundles
             {
                 string bundleName = b.Name;
 
-                IWitcherFile ffe = _entries.First(_ => _.Bundle.Name == bundleName);
+                BundleItem ffe = _entries.First(_ => ((Bundle)_.Bundle).Name == bundleName);
 
                 var bi = new UBundleInfo()
                 {
@@ -317,7 +317,7 @@ namespace WolvenKit.Bundles
             #region UFileInfos and UFileEntryInfos
             for (int i = 0; i < _entries.Count; i++)
             {
-                IWitcherFile e = _entries[i];
+                BundleItem e = _entries[i];
 
 
                 UInt32 bufferid = 0;
@@ -341,7 +341,7 @@ namespace WolvenKit.Bundles
                 };
                 fileInfoList.Add(fi);
 
-                string bundleName = e.Bundle.Name;
+                string bundleName = ((Bundle)e.Bundle).Name;
                 var fei = new UFileEntryInfo()
                 {
                     FileID = (uint)i + 1,

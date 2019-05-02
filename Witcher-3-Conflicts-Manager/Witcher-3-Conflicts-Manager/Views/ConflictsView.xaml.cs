@@ -37,7 +37,8 @@ namespace Witcher_3_Conflicts_Manager.Views
             StringBuilder sb = new StringBuilder();
             foreach (object cbObject in _combo.Items)
             {
-                ((ViewModels.ConflictsViewModel)DataContext).ReloadConflictsList();
+                ((ViewModels.ConflictsViewModel)DataContext).ReloadBundleConflicts();
+                ((ViewModels.ConflictsViewModel)DataContext).ReloadCacheConflicts();
             }
             
         }

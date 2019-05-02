@@ -35,12 +35,11 @@ namespace WolvenKit.Bundles
         public string FileName { get; set; }
         public string Name { get; set; }
         public Dictionary<string, BundleItem> Items { get; set; }
-        public List<IWitcherFile> ItemsList { get; set; } = new List<IWitcherFile>();
+        public List<BundleItem> ItemsList { get; set; } = new List<BundleItem>();
         #endregion
 
         #region Fields
 
-        List<byte[]> uncompressedData { get; set; } = new List<byte[]>();
         List<KeyValuePair<uint, List<byte>>> BODY { get; set; } = new List<KeyValuePair<uint, List<byte>>>();
         #endregion
 
@@ -146,7 +145,7 @@ namespace WolvenKit.Bundles
         /// <param name="Files"></param>
         public void Read(params IWitcherFile[] Files)
         {
-            ItemsList = Files.ToList();
+            ItemsList = Files.Select(_ => (BundleItem)_).ToList();
 
             // calculate ToC size
             dummysize = 0;
@@ -159,12 +158,14 @@ namespace WolvenKit.Bundles
                 IWitcherFile item = (IWitcherFile)ItemsList[i];
                 //item.Bundle = this; //FIXME reparent items
 
-                //get uncompressed data
-                byte[] uc = item.UncompressedData();
-                uncompressedData.Add(uc);
-
-                //compress file
-                List<byte> compressedFile = CompressFile(uc, (int)item.Compression).ToList();
+                //compressed file
+                var compressedFile = new List<byte>();
+                using (var ms = new MemoryStream())
+                {
+                    ((BundleItem)item).GetCompressedFile(ms);
+                    compressedFile.AddRange(ms.ToArray());
+                }
+                //List<byte> compressedFile = CompressFile(uc, (int)((BundleItem)item).Compression).ToList();
                 //padding
                 var filesize = compressedFile.Count;
                 var nextOffset = GetOffset(offset + filesize);
@@ -204,7 +205,7 @@ namespace WolvenKit.Bundles
                 var minDataOffset = ALIGNMENT_TARGET;
                 for (int i = 0; i < ItemsList.Count; i++)
                 {
-                    IWitcherFile f = ItemsList[i];
+                    BundleItem f = ItemsList[i];
                     var dataOffset = BODY[i].Key;
 
                     var name = Encoding.Default.GetBytes(f.Name).ToArray();
@@ -222,7 +223,7 @@ namespace WolvenKit.Bundles
                     bw.Write((UInt32)0x00000000); //DATE
                     bw.Write((UInt32)0x00000000); //TIME
                     bw.Write(new byte[] { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }); //PADDING
-                    UInt32 crc = Crc32C.Crc32CAlgorithm.Compute(uncompressedData[i]);
+                    UInt32 crc = f.CRC; //Crc32C.Crc32CAlgorithm.Compute(uncompressedData[i]);
                     bw.Write((UInt32)crc); //CRC32 FIXME: Check if the game actually cares. crc is incorrect
                     bw.Write((UInt32)f.Compression); // Compression.
                 }
