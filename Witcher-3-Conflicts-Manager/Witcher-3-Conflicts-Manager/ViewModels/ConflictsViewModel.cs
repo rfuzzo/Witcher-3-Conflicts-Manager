@@ -187,13 +187,14 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
             } 
             */
             #endregion
-            
 
 
             //BUNDLES
             List<IWitcherFileWrapper> patchFiles = ConflictsList.Select(x => x.ResolvedFile()).Where(_ => _ != null).ToList();
-            List<IWitcherFile> blobFiles = patchFiles.Select(_ => _.File).ToList();
-            List<IWitcherFile> bufferFiles = patchFiles.Select(_ => _.Buffer).Where(_ => _ != null).ToList();
+
+            List<BundleItem> blobFiles = patchFiles.Select(_ => _.File).Select(_ => _ as BundleItem).Where(_ => _ != null).ToList();
+            List<BundleItem> bufferFiles = patchFiles.Select(_ => _.Buffer).Where(_ => _ != null).ToList();
+            List<TextureCacheItem> cacheFiles = patchFiles.Select(_ => _.File).Select(_ => _ as TextureCacheItem).Where(_ => _ != null).ToList();
 
             if (!(blobFiles.Count > 0) && !(bufferFiles.Count > 0))
                 return;
@@ -235,8 +236,9 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
         #endregion
 
         #region Methods
+        #region Public Methods
         /// <summary>
-        /// 
+        /// reload all from mod directory
         /// </summary>
         public void Refresh()
         {
@@ -247,12 +249,23 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
             LoadMods();
 
             LoadBundles();
-            //LoadCaches();
+            LoadCaches();
 
-            ReloadBundleConflicts();
-            //ReloadCacheConflicts();
+            ReloadAll();
         }
 
+        /// <summary>
+        /// Recreate Conflicts List for selected mods
+        /// </summary>
+        public void ReloadAll()
+        {
+            ConflictsList.Clear();
+            ReloadBundleConflicts();
+            ReloadCacheConflicts();
+        }
+        #endregion
+
+        #region Private Methods
         /// <summary>
         /// Load all mods in the Mod Directory.
         /// </summary>
@@ -295,7 +308,7 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
             var Items = new Dictionary<string, List<IWitcherFile>>();
             foreach (var c in AllCaches)
             {
-                foreach (var item in c.Files)
+                foreach (var item in c.Items)
                 {
 
                     if (!Items.ContainsKey(item.Name))
@@ -330,17 +343,17 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
             var Items = new Dictionary<string, List<IWitcherFile>>();
             foreach (var b in AllBundles)
             {
-                foreach (var item in b.Items)
+                foreach (var item in b.ItemsList)
                 {
                     //filter conflicts
-                    string ext = item.Key.Split('\\').Last().Split('.').Last();
+                    string ext = item.Name.Split('\\').Last().Split('.').Last();
                     if (hiddenExts.Contains(ext))
                         continue;
 
-                    if (!Items.ContainsKey(item.Key))
-                        Items.Add(item.Key, new List<IWitcherFile>());
+                    if (!Items.ContainsKey(item.Name))
+                        Items.Add(item.Name, new List<IWitcherFile>());
 
-                    Items[item.Key].Add(item.Value);
+                    Items[item.Name].Add(item);
                 }
             }
             
@@ -361,9 +374,9 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
         /// <summary>
         /// Populate Conflicts List of selected mods.
         /// </summary>
-        public void ReloadCacheConflicts()
+        private void ReloadCacheConflicts()
         {
-            ConflictsList.Clear();
+            
             var selectedMods = ConflictingMods.Where(_ => _.IsSelected == true).ToList();
 
             //loop through all conflicting files and cast to tw3conflict for selected mods
@@ -402,29 +415,13 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
                 }
             }
         }
-
-        BitmapImage BitmapToImageSource(Bitmap bitmap)
-        {
-            using (MemoryStream memory = new MemoryStream())
-            {
-                bitmap.Save(memory, System.Drawing.Imaging.ImageFormat.Bmp);
-                memory.Position = 0;
-                BitmapImage bitmapimage = new BitmapImage();
-                bitmapimage.BeginInit();
-                bitmapimage.StreamSource = memory;
-                bitmapimage.CacheOption = BitmapCacheOption.OnLoad;
-                bitmapimage.EndInit();
-
-                return bitmapimage;
-            }
-        }
-
+       
         /// <summary>
         /// Populate Conflicts List of selected mods.
         /// </summary>
-        public void ReloadBundleConflicts()
+        private void ReloadBundleConflicts()
         {
-            ConflictsList.Clear();
+            
             var selectedMods = ConflictingMods.Where(_ => _.IsSelected == true).ToList();
 
             //loop through all conflicting files and cast to tw3conflict for selected mods
@@ -450,7 +447,7 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
                     string ext = c.Key.Split('\\').Last().Split('.').Last();
                     if (ext == "buffer")
                     {
-                        List<IWitcherFile> buffers = c.Value;
+                        List<BundleItem> buffers = c.Value.Select(_ => _ as BundleItem).ToList();
                         string parentfilename = c.Key.Substring(0, c.Key.Length - 9); //FIXME trim ".1.buffer"
                         parentfilename = parentfilename.Split('\\').Last();
                         //list of files for buffers
@@ -483,11 +480,28 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
             }
         }
 
+        private BitmapImage BitmapToImageSource(Bitmap bitmap)
+        {
+            using (MemoryStream memory = new MemoryStream())
+            {
+                bitmap.Save(memory, System.Drawing.Imaging.ImageFormat.Bmp);
+                memory.Position = 0;
+                BitmapImage bitmapimage = new BitmapImage();
+                bitmapimage.BeginInit();
+                bitmapimage.StreamSource = memory;
+                bitmapimage.CacheOption = BitmapCacheOption.OnLoad;
+                bitmapimage.EndInit();
+
+                return bitmapimage;
+            }
+        }
+
+
         private static string GetModname(IWitcherFile f)
         {
             return f.Bundle.FileName.Split('\\').Where(_ => _.Length >= 3).First(x => x.Substring(0, 3) == "mod");
         }
-
+        #endregion
         #endregion
     }
 }

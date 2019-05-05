@@ -23,37 +23,61 @@ namespace WolvenKit.Bundles
         private static string FOOTER_DATA = "AlignmentUnused"; //The bundle's final filesize should be an even multiple of 16; garbage data should be appended at the end if necessary to make this happen [appears to be unnecessary/optional, as far as the game cares]
         private static int TOCEntrySize = 0x100 + 16 + 4 + 4 + 4 + 4 + 8 + 16 + 4 + 4; //Size of a TOC Entry.
 
-        private uint bundlesize;
-        private uint tocRealSize;
-        private uint dummysize;
+        private BundleHeader Header;
+
         #endregion
 
         #region Properties
-        public uint DataBlockSize { get; set; }
-        public uint DataBlockOffset { get; set; }
-        public string TypeName { get { return "Bundle"; } }
+        //FIXME make that dynamic
+        public uint DataBlockSize {
+            get
+            {
+                return Header.Bundlesize - DataBlockOffset;
+            }
+        }
+        public uint DataBlockOffset {
+            get
+            {
+                return Header.TocRealSize + (uint)HEADER_SIZE;
+            }
+        }
+        public string TypeName => "Bundle";
         public string FileName { get; set; }
-        public string Name { get; set; }
-        public Dictionary<string, BundleItem> Items { get; set; }
+        public static string Name { get; set; }
+        //public Dictionary<string, BundleItem> Items { get; set; } //FIXME unused
         public List<BundleItem> ItemsList { get; set; } = new List<BundleItem>();
         #endregion
 
-        #region Fields
-
-        List<KeyValuePair<uint, List<byte>>> BODY { get; set; } = new List<KeyValuePair<uint, List<byte>>>();
-        #endregion
-
+        #region Constructors
         public Bundle()
         {
 
         }
-        public Bundle(string FilePath)
+        /// <summary>
+        /// Create Bundle from a .bundle file.
+        /// </summary>
+        /// <param name="filePath"></param>
+        public Bundle(string filePath)
         {
-            Read(FilePath);
+            Read(filePath);
         }
-        public Bundle(IWitcherFile[] Files)
+        /// <summary>
+        /// Create a bundle from a list of files in a directory.
+        /// </summary>
+        /// <param name="indir"></param>
+        public Bundle(DirectoryInfo indir)
         {
-            Read(Files);
+            //handle buffers //FIXME
+
+            Read(indir.GetFiles("*", SearchOption.AllDirectories));
+        }
+        /// <summary>
+        /// Create Bundle from a list of BundleItems (compressed)
+        /// </summary>
+        /// <param name="_files"></param>
+        public Bundle(BundleItem[] _files)
+        {
+            Read(_files);
 
             //check for buffers
             var bufferCount = ItemsList.Where(_ => _.Name.Split('\\').Last().Split('.').Last() == "buffer").ToList().Count;
@@ -67,240 +91,292 @@ namespace WolvenKit.Bundles
             else
                 Name = "blob0.bundle";
         }
+        /// <summary>
+        /// Create Bundle from a list of IWitcherFiles (uncompressed)
+        /// </summary>
+        /// <param name="_files"></param>
+        public Bundle(IWitcherFile[] _files)
+        {
+            Read(_files);
+        }
+        #endregion
 
-        
-        
-        
+        #region Public Methods
+        /// <summary>
+        /// Serialize bundle to a .bundle file.
+        /// </summary>
+        /// <param name="outdir"></param>
+        public void Write(string outdir)
+        {
+            var filePath = Path.Combine(outdir, Name);
+
+            using (var fs = new FileStream(filePath, FileMode.Create))
+            using (var bw = new BinaryWriter(fs))
+            {
+                // Write Header
+                Header.Write(bw);
+                //FIXME this is going to be static in the sense that 
+                //one will not be able to add or remove items inside the bundle directly. 
+                //Bundles have to be packed from a list of items once.
+
+                // Write ToC
+                var minDataOffset = ALIGNMENT_TARGET;
+                foreach (BundleItem f in ItemsList)
+                {
+                    f.Write(bw);
+                }
+                //pad the ToC
+                int writePosition = (int)bw.BaseStream.Position;
+                int tocPadding = GetOffset(writePosition) - writePosition;
+                if (tocPadding > 0)
+                    bw.Write(new byte[tocPadding]);
+
+                // Write Body
+                for (int i = 0; i < ItemsList.Count; i++)
+                {
+                    BundleItem item = ItemsList[i];
+
+                    //compressed file
+                    var compressedFile = new List<byte>();
+                    using (var ms = new MemoryStream())
+                    {
+                        item.GetCompressedFile(ms);
+                        compressedFile.AddRange(ms.ToArray());
+                    }
+
+                    //pad body items
+                    int filesize = (int)item.ZSize;
+                    int nextOffset = GetOffset((int)item.PageOffset + filesize);
+                    int paddingLength = nextOffset - ((int)item.PageOffset + filesize);
+                    if (paddingLength > 0 && i < (ItemsList.Count - 1)) //don't pad the last item
+                        compressedFile.AddRange(new byte[paddingLength]);
+
+                    bw.Write(compressedFile.ToArray());
+                }
+            }
+        }
+        #endregion
+
+        #region Private Methods 
         /// <summary>
         /// Reads a .bundle file.
         /// </summary>
-        public void Read(string filename)
+        private void Read(string filename)
         {
             FileName = filename;
             Name = filename.Split('\\').Last();
-            Items = new Dictionary<string, BundleItem>();
+            //Items = new Dictionary<string, BundleItem>();
 
-            using (var reader = new BinaryReader(new FileStream(FileName, FileMode.Open, FileAccess.Read)))
+            using (var br = new BinaryReader(new FileStream(FileName, FileMode.Open, FileAccess.Read)))
             {
-                var idstring = reader.ReadBytes(IDString.Length);
-
-                if (!IDString.SequenceEqual(idstring))
-                {
+                //read bundleheader
+                Header = new BundleHeader();
+                Header.Read(br);
+                if (!IDString.SequenceEqual(Header.IDString))
                     throw new InvalidBundleException("Bundle header mismatch.");
-                }
 
-                bundlesize = reader.ReadUInt32();
-                dummysize = reader.ReadUInt32();
-                tocRealSize = reader.ReadUInt32();
-
-                DataBlockOffset = tocRealSize + (uint)HEADER_SIZE;
-                DataBlockSize = bundlesize - DataBlockOffset;
-
-                reader.BaseStream.Seek(0x20, SeekOrigin.Begin);
-
-                while (reader.BaseStream.Position < tocRealSize + 0x20)
+                //Read Table of Contents
+                br.BaseStream.Seek(0x20, SeekOrigin.Begin);
+                while (br.BaseStream.Position < Header.TocRealSize + 0x20)
                 {
                     var item = new BundleItem
                     {
                         Bundle = this
                     };
 
-                    var strname = Encoding.Default.GetString(reader.ReadBytes(0x100));
+                    var strname = Encoding.Default.GetString(br.ReadBytes(0x100));
 
                     item.Name = strname.Substring(0, strname.IndexOf('\0'));
-                    item.Hash = reader.ReadBytes(16);
-                    item.Empty = reader.ReadUInt32();
-                    item.Size = reader.ReadUInt32();
-                    item.ZSize = reader.ReadUInt32();
-                    item.PageOFfset = reader.ReadUInt32();
+                    item.Hash = br.ReadBytes(16);
+                    item.Empty = br.ReadUInt32();
+                    item.Size = br.ReadUInt32();
+                    item.ZSize = br.ReadUInt32();
+                    item.PageOffset = br.ReadUInt32();
 
-                    var date = reader.ReadUInt32();
+                    var date = br.ReadUInt32();
                     var y = date >> 20;
                     var m = date >> 15 & 0x1F;
                     var d = date >> 10 & 0x1F;
 
-                    var time = reader.ReadUInt32();
+                    var time = br.ReadUInt32();
                     var h = time >> 22;
                     var n = time >> 16 & 0x3F;
                     var s = time >> 10 & 0x3F;
 
                     item.DateString = string.Format(" {0}/{1}/{2} {3}:{4}:{5}", d, m, y, h, n, s);
 
-                    item.Zero = reader.ReadBytes(16);    //00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 (always, in every archive)
-                    item.CRC = reader.ReadUInt32();    //CRC32 for the uncompressed data
-                    item.Compression = reader.ReadUInt32();
+                    item.Zero = br.ReadBytes(16);    //00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 (always, in every archive)
+                    item.CRC = br.ReadUInt32();    //CRC32 for the uncompressed data
+                    item.Compression = br.ReadUInt32();
 
-                    Items.Add(item.Name, item);
+                    //Items.Add(item.Name, item);
                     ItemsList.Add(item);
                 }
 
 
-                reader.Close();
+                br.Close();
             }
         }
 
         /// <summary>
-        /// Generate a bundle from a list of IWitcherFiles.
+        /// Generate a bundle from a list of BundleItems. (compressed)
         /// </summary>
         /// <param name="Files"></param>
-        public void Read(params IWitcherFile[] Files)
+        private void Read(BundleItem[] Files)
         {
-            ItemsList = Files.Select(_ => (BundleItem)_).ToList();
-
-            // calculate ToC size
-            dummysize = 0;
-            tocRealSize = (UInt32)(ItemsList.Count * TOCEntrySize);
+            uint tocRealSize = (UInt32)(Files.Length * TOCEntrySize);
 
             // MAIN BODY
             int offset = GetOffset((int)tocRealSize);
-            for (int i = 0; i < ItemsList.Count; i++)
+            foreach (BundleItem item in Files)
             {
-                IWitcherFile item = (IWitcherFile)ItemsList[i];
-                //item.Bundle = this; //FIXME reparent items
+                int nextOffset = GetOffset(offset + (int)item.ZSize);
 
-                //compressed file
-                var compressedFile = new List<byte>();
-                using (var ms = new MemoryStream())
+                BundleItem newItem = new BundleItem()
                 {
-                    ((BundleItem)item).GetCompressedFile(ms);
-                    compressedFile.AddRange(ms.ToArray());
-                }
-                //List<byte> compressedFile = CompressFile(uc, (int)((BundleItem)item).Compression).ToList();
-                //padding
-                var filesize = compressedFile.Count;
-                var nextOffset = GetOffset(offset + filesize);
-                int paddingLength = nextOffset - (offset + filesize);
-                if (paddingLength > 0 && i < (ItemsList.Count - 1)) //don't pad the last item
-                    compressedFile.AddRange(new byte[paddingLength]);
-
-                BODY.Add(new KeyValuePair<uint, List<byte>>((uint)offset, compressedFile));
+                    Name = item.Name,
+                    Hash = item.Hash, //FIXME?
+                    Size = item.Size,
+                    ZSize = item.ZSize,
+                    Compression = item.Compression,
+                    DateString = item.DateString,
+                    Bundle = this, //FIXME? this will create problems with accessing compressed data from Memorymappedfiles
+                    PageOffset = (uint)offset, //FIXME is that right?
+                    CRC = item.CRC //CRC = Crc32C.Crc32CAlgorithm.Compute(compressedFile.ToArray()) //FIXME is that crc over the compressed or uncompressed bytes?
+                };
+                ItemsList.Add(newItem);
 
                 offset = nextOffset;
             }
-            bundlesize = (uint)offset;
-            DataBlockOffset = tocRealSize + (uint)HEADER_SIZE;
-            DataBlockSize = bundlesize - DataBlockOffset;
+
+            //create header
+            uint dummysize = 0;
+            uint bundlesize = (uint)offset;
+            Header = new BundleHeader(IDString, bundlesize, dummysize, tocRealSize);
         }
 
         /// <summary>
-        /// Serialize bundle to a .bundle file.
+        /// Generate a bundle from a list of IWitcherFiles. (uncompressed)
         /// </summary>
-        /// <param name="outDir"></param>
-        public void Write(string outDir)
+        /// <param name="Files"></param>
+        private void Read(IWitcherFile[] Files)
         {
-            var filePath = Path.Combine(outDir, Name);
+            uint tocRealSize = (UInt32)(Files.Length * TOCEntrySize);
 
-            using (var fs = new FileStream(filePath, FileMode.Create))
-            using (var bw = new BinaryWriter(fs))
+            int offset = GetOffset((int)tocRealSize);
+            foreach (IWitcherFile f in Files)
             {
+                //get the raw bytes
+                var rawbytes = new byte[8]; //FIXME 
+                var compressedBytes = LZ4.LZ4Codec.EncodeHC(rawbytes, 0, rawbytes.Length); //FIXME
 
-                // Write Header
-                bw.Write(IDString);
-                bw.Write(bundlesize);
-                bw.Write(dummysize);
-                bw.Write(tocRealSize);
-                bw.Write(new byte[] { 0x03, 0x00, 0x01, 0x00, 0x00, 0x13, 0x13, 0x13, 0x13, 0x13, 0x13, 0x13 }); //TODO: Figure out what the hell is this.
+                //padding
+                int nextOffset = GetOffset(offset + compressedBytes.Length);
 
-                // Write ToC
-                var minDataOffset = ALIGNMENT_TARGET;
-                for (int i = 0; i < ItemsList.Count; i++)
+                BundleItem newItem = new BundleItem()
                 {
-                    BundleItem f = ItemsList[i];
-                    var dataOffset = BODY[i].Key;
+                    CompressedBytes = compressedBytes,
+                    //FileName = f.FullName,
 
-                    var name = Encoding.Default.GetBytes(f.Name).ToArray();
-                    if (name.Length > 0x100)
-                        name = name.Take(0x100).ToArray();
-                    if (name.Length < 0x100)
-                        Array.Resize(ref name, 0x100);
-                    bw.Write(name); //Filename trimmed to 100 characters.
-
-                    bw.Write(new byte[] { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }); //HASH
-                    bw.Write((UInt32)0x00000000); //EMPTY
-                    bw.Write((UInt32)f.Size); //SIZE
-                    bw.Write((UInt32)f.ZSize); //ZSIZE
-                    bw.Write((UInt32)dataOffset); //DATA OFFSET
-                    bw.Write((UInt32)0x00000000); //DATE
-                    bw.Write((UInt32)0x00000000); //TIME
-                    bw.Write(new byte[] { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }); //PADDING
-                    UInt32 crc = f.CRC; //Crc32C.Crc32CAlgorithm.Compute(uncompressedData[i]);
-                    bw.Write((UInt32)crc); //CRC32 FIXME: Check if the game actually cares. crc is incorrect
-                    bw.Write((UInt32)f.Compression); // Compression.
-                }
-
-                //pad the ToC
-                int writePosition = (int)bw.BaseStream.Position;
-                int paddingLength = GetOffset(writePosition) - writePosition;
-                if (paddingLength > 0)
-                    bw.Write(new byte[paddingLength]);
-
-                // Write Body
-                foreach (var item in BODY)
-                {
-                    bw.Write(item.Value.ToArray());
-                }
-            }
-        }
-
-        //FIXME buffers and blobs
-        /// <summary>
-        /// Create a .bundle file from a directory.
-        /// </summary>
-        /// <param name="outDir"></param>
-        /// <param name="inDir"></param>
-        public static void Pack(string inDir, string outDir)
-        {
-            List<IWitcherFile> bufferFiles = new List<IWitcherFile>();
-            List<IWitcherFile> blobFiles = new List<IWitcherFile>();
-
-            foreach (var f in Directory.EnumerateFiles(inDir, "*", SearchOption.AllDirectories))
-            {
-                var name = Encoding.Default.GetBytes(GetRelativePath(f, inDir)).ToArray();
-                if (name.Length > 0x100)
-                    name = name.Take(0x100).ToArray();
-                if (name.Length < 0x100)
-                    Array.Resize(ref name, 0x100);
-
-                var bi = new BundleItem
-                {
-                    Name = System.Text.Encoding.Default.GetString(name),
-                    Compression = 5, //FIXME make variable
-
+                    Name = f.Name, //FIXME I need the relative path here
+                    Hash = new byte[16], //FIXME
+                    Size = rawbytes.Length,
+                    ZSize = (uint)compressedBytes.Length,
+                    Compression = 5, //Fixme where do we get the compression from?
+                    DateString = "", //unused
+                    Bundle = this,
+                    PageOffset = (uint)offset,
+                    CRC = Crc32C.Crc32CAlgorithm.Compute(rawbytes) //FIXME is that crc over the compressed or uncompressed bytes?
                 };
+                ItemsList.Add(newItem);
 
-                //sort buffers out
-                if (f.Split('\\').Last().Split('.').Last() == "buffer")
-                    bufferFiles.Add(bi);
-                else
-                    blobFiles.Add(bi);
+                offset = nextOffset;
             }
 
-            List<Bundle> bundles = new List<Bundle>();
-            if (blobFiles.Count > 0)
-                bundles.Add(new Bundle(blobFiles.ToArray()));
-            if (bufferFiles.Count > 0)
-                bundles.Add(new Bundle(bufferFiles.ToArray()));
-            foreach (var b in bundles)
-                b.Write(outDir);
+            //create header
+            uint dummysize = 0;
+            uint bundlesize = (uint)offset;
+            Header = new BundleHeader(IDString, bundlesize, dummysize, tocRealSize);
         }
 
-
-        private static byte[] CompressFile(byte[] Data, int ComType)
+        /// <summary>
+        /// Generate a bundle from a list of binary Files. (uncompressed)
+        /// </summary>
+        /// <param name="Files"></param>
+        private void Read(FileInfo[] Files )
         {
-            switch (ComType)
+            uint tocRealSize = (UInt32)(Files.Length * TOCEntrySize);
+
+            int offset = GetOffset((int)tocRealSize);
+            foreach (FileInfo f in Files)
             {
-                case 4:
-                case 5:
-                    {
-                        return LZ4.LZ4Codec.EncodeHC(Data, 0, Data.Length);
-                    }
-                default:
-                    {
-                        return Data;
-                    }
+                //get the raw bytes
+                var rawbytes = File.ReadAllBytes(f.FullName);
+                var compressedBytes = LZ4.LZ4Codec.EncodeHC(rawbytes, 0, rawbytes.Length); //FIXME
+
+                //padding
+                int nextOffset = GetOffset(offset + compressedBytes.Length);
+
+                BundleItem newItem = new BundleItem()
+                {
+                    CompressedBytes = compressedBytes,
+                    //FileName = f.FullName,
+
+                    Name = GetRelativePath(f.FullName, f.Directory.FullName), //FIXME I need the relative path here, so, the foldername is probably the modDir
+                    Hash = new byte[16], //FIXME
+                    Size = rawbytes.Length,
+                    ZSize = (uint)compressedBytes.Length,
+                    Compression = 5, //Fixme where do we get the compression from?
+                    DateString = "", //unused
+                    Bundle = this,
+                    PageOffset = (uint)offset,
+                    CRC = Crc32C.Crc32CAlgorithm.Compute(rawbytes) //FIXME is that crc over the compressed or uncompressed bytes?
+                };
+                ItemsList.Add(newItem);
+
+                offset = nextOffset;
             }
+
+            //create header
+            uint dummysize = 0;
+            uint bundlesize = (uint)offset;
+            Header = new BundleHeader(IDString, bundlesize, dummysize, tocRealSize);
         }
-        public static int WriteCompressedData(BinaryWriter bw, byte[] Data,int ComType)
+
+        /// <summary>
+        /// Calculate the next possible alignment target from an offset.
+        /// </summary>
+        /// <param name="minPos"></param>
+        /// <returns></returns>
+        private static int GetOffset(int minPos)
+        {
+            int firstValidPos = (minPos / ALIGNMENT_TARGET) * ALIGNMENT_TARGET + ALIGNMENT_TARGET;
+            while (firstValidPos < minPos)
+            {
+                firstValidPos += ALIGNMENT_TARGET;
+            }
+            return firstValidPos;
+        }
+
+        /// <summary>
+        /// Gets relative path from absolute path.
+        /// </summary>
+        /// <param name="filespec">A files path.</param>
+        /// <param name="folder">The folder's path.</param>
+        /// <returns></returns>
+        private static string GetRelativePath(string filespec, string folder)
+        {
+            Uri pathUri = new Uri(filespec);
+            // Folders must end in a slash
+            if (!folder.EndsWith(Path.DirectorySeparatorChar.ToString()))
+            {
+                folder += Path.DirectorySeparatorChar;
+            }
+            Uri folderUri = new Uri(folder);
+            return Uri.UnescapeDataString(folderUri.MakeRelativeUri(pathUri).ToString().Replace('/', Path.DirectorySeparatorChar));
+        }
+
+        private static int WriteCompressedData(BinaryWriter bw, byte[] Data, int ComType)
         {
             int writePosition = (int)bw.BaseStream.Position;
             int numWritten = 0;
@@ -327,48 +403,60 @@ namespace WolvenKit.Bundles
             {
                 case 4:
                 case 5:
-                {
-                    bw.Write(LZ4.LZ4Codec.EncodeHC(Data,0,Data.Length));
-                    break;
-                }
+                    {
+                        bw.Write(LZ4.LZ4Codec.EncodeHC(Data, 0, Data.Length));
+                        break;
+                    }
                 default:
-                {
-                    bw.Write(Data);
-                    numWritten += Data.Length;
-                    break;
-                }
+                    {
+                        bw.Write(Data);
+                        numWritten += Data.Length;
+                        break;
+                    }
             }
             return numWritten;
         }
 
-        public static int GetOffset(int minPos)
+        #endregion
+    }
+
+
+    public class BundleHeader
+    {
+        public byte[] IDString;
+        public uint Bundlesize;
+        private uint Dummysize;
+        public uint TocRealSize;
+
+        public BundleHeader()
         {
-            int firstValidPos = (minPos / ALIGNMENT_TARGET) * ALIGNMENT_TARGET + ALIGNMENT_TARGET;
-            while (firstValidPos < minPos)
-            {
-                firstValidPos += ALIGNMENT_TARGET;
-            }
-            return firstValidPos;
+
         }
 
-        
-
-        /// <summary>
-        /// Gets relative path from absolute path.
-        /// </summary>
-        /// <param name="filespec">A files path.</param>
-        /// <param name="folder">The folder's path.</param>
-        /// <returns></returns>
-        public static string GetRelativePath(string filespec, string folder)
+        public BundleHeader(byte[] idstring, uint bundlesize, uint dummysize, uint tocrealsize)
         {
-            Uri pathUri = new Uri(filespec);
-            // Folders must end in a slash
-            if (!folder.EndsWith(Path.DirectorySeparatorChar.ToString()))
-            {
-                folder += Path.DirectorySeparatorChar;
-            }
-            Uri folderUri = new Uri(folder);
-            return Uri.UnescapeDataString(folderUri.MakeRelativeUri(pathUri).ToString().Replace('/', Path.DirectorySeparatorChar));
+            IDString = idstring;
+            Bundlesize = bundlesize;
+            Dummysize = dummysize;
+            TocRealSize = tocrealsize;
+        }
+
+        public void Write(BinaryWriter bw)
+        {
+            bw.Write(IDString);
+            bw.Write(Bundlesize);
+            bw.Write(Dummysize);
+            bw.Write(TocRealSize);
+            bw.Write(new byte[] { 0x03, 0x00, 0x01, 0x00, 0x00, 0x13, 0x13, 0x13, 0x13, 0x13, 0x13, 0x13 }); //TODO: Figure out what the hell is this.
+        }
+
+        public void Read(BinaryReader br)
+        {
+            IDString = br.ReadBytes(8); 
+            Bundlesize = br.ReadUInt32();
+            Dummysize = br.ReadUInt32();
+            TocRealSize = br.ReadUInt32();
         }
     }
+
 }

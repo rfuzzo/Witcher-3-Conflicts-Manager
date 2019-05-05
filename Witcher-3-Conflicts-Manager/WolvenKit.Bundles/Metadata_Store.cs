@@ -346,7 +346,7 @@ namespace WolvenKit.Bundles
                 {
                     FileID = (uint)i + 1,
                     BundleID = (uint)_bundleNames.ToList().IndexOf(bundleName) + 1,
-                    OffsetInBundle = (uint)e.PageOFfset,
+                    OffsetInBundle = (uint)e.PageOffset,
                     SizeInBundle = e.ZSize,
                     NextEntry = 0
                 };

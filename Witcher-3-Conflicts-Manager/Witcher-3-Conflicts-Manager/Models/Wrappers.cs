@@ -127,7 +127,7 @@ namespace Witcher_3_Conflicts_Manager.Models
             }
         }
         public IWitcherFile File { get; set; }
-        public IWitcherFile Buffer { get; set; }
+        public BundleItem Buffer { get; set; }
         public ImageSource Image { get; set; }
         #endregion
 

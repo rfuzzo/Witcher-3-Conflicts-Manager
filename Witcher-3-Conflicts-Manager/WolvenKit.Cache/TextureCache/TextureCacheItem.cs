@@ -14,17 +14,12 @@ namespace WolvenKit.Cache
 {
     public class TextureCacheItem : IWitcherFile
     {
-        public IWitcherArchiveType Bundle { get; set; }
+        #region Info
         public string DateString { get; set; }
-
-        public string CompressionType => "Zlib";
-
-        public string ParentFile;
-
         public string Name { get; set; }
         public Int32 Hash;
         public Int32 PathStringIndex;
-        public long PageOFfset { get; set; }
+        public long PageOffset { get; set; }
         public Int32 CompressedSize;
         public Int32 UncompressedSize;
         public UInt32 BaseAlignment;
@@ -37,10 +32,16 @@ namespace WolvenKit.Cache
         public Int64 TimeStamp;
         public Int16 Type;
         public Int16 IsCube;
+        #endregion
 
+        #region Properties
+        public string CompressionType => "Zlib";
+        public string ParentFile;
+        public IWitcherArchiveType Bundle { get; set; }
         public long Size { get; set; }
         public UInt32 ZSize { get; set; }
         public Byte Part;
+        #endregion
 
         public enum ETextureFormat
         {
@@ -79,7 +80,7 @@ namespace WolvenKit.Cache
             TEXFMT_Max = 0x20,
         };
 
-        public Dictionary<Int16,ETextureFormat> formats = new Dictionary<Int16,ETextureFormat>()
+        public Dictionary<Int16, ETextureFormat> formats = new Dictionary<Int16, ETextureFormat>()
         {
             {0x3FD,ETextureFormat.TEXFMT_R8G8B8A8},
             {0x407,ETextureFormat.TEXFMT_BC1},
@@ -93,16 +94,29 @@ namespace WolvenKit.Cache
             {0x40F, ETextureFormat.TEXFMT_BC5}
         };
 
+        #region Constructors
         public TextureCacheItem(IWitcherArchiveType parent)
         {
             Bundle = parent;
         }
+        #endregion
 
+
+        public void GetCompressedFile(Stream output)
+        {
+            using (var file = MemoryMappedFile.CreateFromFile(Bundle.FileName, FileMode.Open))
+            {
+                using (var viewstream = file.CreateViewStream((PageOffset * 4096) + 9, ZSize, MemoryMappedFileAccess.Read))
+                {
+                    viewstream.CopyTo(output);
+                }
+            }
+        }
         public void Extract(Stream output)
         {
             using (var file = MemoryMappedFile.CreateFromFile(this.ParentFile, FileMode.Open))
             {
-                using (var viewstream = file.CreateViewStream((PageOFfset * 4096)+9, ZSize, MemoryMappedFileAccess.Read))
+                using (var viewstream = file.CreateViewStream((PageOffset * 4096) + 9, ZSize, MemoryMappedFileAccess.Read))
                 {
                     //TODO: Finish this once we have a proper dds reader/writer
                     byte Dxt = BitConverter.GetBytes(Type)[0];
@@ -119,7 +133,7 @@ namespace WolvenKit.Cache
                     var cubemap = (Type == 3 || Type == 0) && (SliceCount == 6);
                     uint depth = 0;
                     if (SliceCount > 1 && Type == 4) depth = SliceCount;
-                    if (Type == 3 && Dxt == 253) BaseAlignment = 32;   
+                    if (Type == 3 && Dxt == 253) BaseAlignment = 32;
                     var header = new DDSHeader().generate(
                             BaseWidth,
                             BaseHeight,
@@ -129,7 +143,7 @@ namespace WolvenKit.Cache
                             IsCube == 1,
                             depth)
                         .Concat(BitConverter.GetBytes((Int32)0)).ToArray();
-                    output.Write(header,0,header.Length);
+                    output.Write(header, 0, header.Length);
                     if (!(SliceCount == 6 && (Type == 253 || Type == 0)))
                         new ZlibStream(viewstream, CompressionMode.Decompress).CopyTo(output);
                 }
@@ -142,6 +156,11 @@ namespace WolvenKit.Cache
             {
                 Extract(output);
             }
+        }
+
+        public void Write(BinaryWriter bw)
+        {
+
         }
     }
 }
