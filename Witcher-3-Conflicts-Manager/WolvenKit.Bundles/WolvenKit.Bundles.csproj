@@ -173,10 +173,6 @@
       <Project>{4d1019f1-f099-450f-85b8-697e0332a94f}</Project>
       <Name>WolvenKit.Common</Name>
     </ProjectReference>
-    <ProjectReference Include="..\WolvenKit.W3Strings\WolvenKit.W3Strings.csproj">
-      <Project>{32d40d10-d6c3-48f0-aeb6-0f41c7e75cfd}</Project>
-      <Name>WolvenKit.W3Strings</Name>
-    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <BootstrapperPackage Include=".NETFramework,Version=v4.6.1">

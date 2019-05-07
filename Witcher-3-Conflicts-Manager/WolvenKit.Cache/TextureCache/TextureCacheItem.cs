@@ -20,28 +20,32 @@ namespace WolvenKit.Cache
         public Int32 Hash;
         public Int32 PathStringIndex;
         public long PageOffset { get; set; }
-        public Int32 CompressedSize;
-        public Int32 UncompressedSize;
+        public UInt32 ZSize { get; set; } //compressed size with mipmaps
+        public long Size { get; set; } //uncompressed size with mipmaps
         public UInt32 BaseAlignment;
         public UInt16 BaseWidth;
         public UInt16 BaseHeight;
-        public UInt16 Mipcount;
+        public UInt16 TotalMipsCount;
         public UInt16 SliceCount;
         public Int32 MipOffsetIndex;
-        public Int32 NumMipOffsets;
+        public Int32 MipsCount;
         public Int64 TimeStamp;
         public Int16 Type;
         public Int16 IsCube;
         #endregion
 
         #region Properties
-        public string CompressionType => "Zlib";
         public string ParentFile;
         public IWitcherArchiveType Bundle { get; set; }
-        public long Size { get; set; }
-        public UInt32 ZSize { get; set; }
-        public Byte Part;
-        #endregion
+
+
+        public Byte CachedMipsCount { get; set; } //cached mipmaps count
+        public UInt32 CachedZSizeNoMips { get; set; } //compressed size without mipmaps
+        public Int32 CachedSizeNoMips { get; set; } //uncompressed size without mipmaps
+        public string CompressionType => "Zlib";
+        
+        public byte[] CompressedBytes { get; set; }
+        public int MipMapSize => (int)(ZSize - CachedZSizeNoMips - 9);
 
         public enum ETextureFormat
         {
@@ -79,7 +83,6 @@ namespace WolvenKit.Cache
             TEXFMT_NULL = 0x1F,
             TEXFMT_Max = 0x20,
         };
-
         public Dictionary<Int16, ETextureFormat> formats = new Dictionary<Int16, ETextureFormat>()
         {
             {0x3FD,ETextureFormat.TEXFMT_R8G8B8A8},
@@ -93,6 +96,7 @@ namespace WolvenKit.Cache
             {0x40E, ETextureFormat.TEXFMT_BC4},
             {0x40F, ETextureFormat.TEXFMT_BC5}
         };
+        #endregion
 
         #region Constructors
         public TextureCacheItem(IWitcherArchiveType parent)
@@ -104,14 +108,30 @@ namespace WolvenKit.Cache
 
         public void GetCompressedFile(Stream output)
         {
-            using (var file = MemoryMappedFile.CreateFromFile(Bundle.FileName, FileMode.Open))
+            if (File.Exists(Bundle.FileName))
             {
-                using (var viewstream = file.CreateViewStream((PageOffset * 4096) + 9, ZSize, MemoryMappedFileAccess.Read))
+                using (var file = MemoryMappedFile.CreateFromFile(Bundle.FileName, FileMode.Open))
                 {
-                    viewstream.CopyTo(output);
+                    using (var viewstream = file.CreateViewStream((PageOffset * 4096) + 9, CachedZSizeNoMips, MemoryMappedFileAccess.Read))
+                    {
+                        viewstream.CopyTo(output);
+                    }
                 }
             }
+            else
+            {
+                if (CompressedBytes == null)
+                {
+                    //FIXME this would happen when the BundleItem was created from a file that was created in memory.
+                    throw new InvalidCacheException("Found neither a bundle nor a file to read from.");
+                }
+
+                output.Write(CompressedBytes, 0, CompressedBytes.Length);
+            }
         }
+
+        
+
         public void Extract(Stream output)
         {
             using (var file = MemoryMappedFile.CreateFromFile(this.ParentFile, FileMode.Open))
@@ -137,7 +157,7 @@ namespace WolvenKit.Cache
                     var header = new DDSHeader().generate(
                             BaseWidth,
                             BaseHeight,
-                            Mipcount,
+                            TotalMipsCount,
                             fmt,
                             BaseAlignment,
                             IsCube == 1,
@@ -145,7 +165,13 @@ namespace WolvenKit.Cache
                         .Concat(BitConverter.GetBytes((Int32)0)).ToArray();
                     output.Write(header, 0, header.Length);
                     if (!(SliceCount == 6 && (Type == 253 || Type == 0)))
-                        new ZlibStream(viewstream, CompressionMode.Decompress).CopyTo(output);
+                    {
+                        using (var zs = new ZlibStream(viewstream, CompressionMode.Decompress))
+                        {
+                            zs.CopyTo(output);
+                        }
+                    }
+                        
                 }
             }
         }
@@ -160,7 +186,87 @@ namespace WolvenKit.Cache
 
         public void Write(BinaryWriter bw)
         {
-
+            bw.Write((Int32)Hash);
+            bw.Write((Int32)PathStringIndex);
+            bw.Write((Int32)PageOffset);
+            bw.Write((Int32)ZSize);
+            bw.Write((Int32)Size);
+            bw.Write((Int32)BaseAlignment);
+            bw.Write((UInt16)BaseWidth);
+            bw.Write((UInt16)BaseHeight);
+            bw.Write((UInt16)TotalMipsCount);
+            bw.Write((UInt16)SliceCount);
+            bw.Write((Int32)MipOffsetIndex);
+            bw.Write((Int32)MipsCount);
+            bw.Write((UInt64)TimeStamp);
+            bw.Write((UInt16)Type);
+            bw.Write((UInt16)IsCube);
         }
+
+        /// <summary>
+        /// Get the list of MipmapOffsets
+        /// </summary>
+        /// <returns></returns>
+        internal uint[] GetMipsOffsettable()
+        {
+            if (File.Exists(Bundle.FileName))
+            {
+                var tempDict = new uint[MipsCount];
+                var mipmapSectionOffset = (PageOffset * 4096) + 9 + CachedZSizeNoMips;
+                int msize = MipMapSize;
+
+                using (var file = MemoryMappedFile.CreateFromFile(Bundle.FileName, FileMode.Open))
+                using (var vs = file.CreateViewStream(mipmapSectionOffset, msize, MemoryMappedFileAccess.Read))
+                using (var br = new BinaryReader(vs))
+                {
+                    for (int i = 0; i < MipsCount; i++)
+                    {
+                        var relOffset = vs.Position;
+
+                        //mipmap section header (9 bytes)
+                        //length = (count * 256) + overflow
+                        byte overflow = br.ReadByte(); //not sure how to call this. 1 byte of 
+                        UInt32 mipPageCount = br.ReadUInt32(); //4bytes pagecount
+                        UInt16 dim1 = br.ReadUInt16(); //2bytes dim1
+                        UInt16 dim2 = br.ReadUInt16(); //2bytes dim2
+                        var length = (mipPageCount * 256) + overflow;
+
+                        tempDict[i] = (uint)relOffset;
+                        br.BaseStream.Seek(length, SeekOrigin.Current);
+                    }
+                    //MipMapSize = (int)br.BaseStream.Position; //FIXME move this?
+                    //errorhandling?
+                }
+                return tempDict;
+            }
+            else
+            {
+                throw new NotImplementedException();
+            }
+        }
+
+        /// <summary>
+        /// Writes the item's mipmaps to a stream.
+        /// </summary>
+        /// <param name="bw"></param>
+        internal void WriteMipmaps(Stream output)
+        {
+            if (File.Exists(Bundle.FileName))
+            {
+                var mipmapSectionOffset = (PageOffset * 4096) + 9 + CachedZSizeNoMips;
+
+                using (var file = MemoryMappedFile.CreateFromFile(Bundle.FileName, FileMode.Open))
+                using (var vs = file.CreateViewStream(mipmapSectionOffset, MipMapSize, MemoryMappedFileAccess.Read))
+                {
+                    vs.CopyTo(output);
+                }
+            }
+            else
+            {
+                throw new NotImplementedException();
+            }
+        }
+
+
     }
 }

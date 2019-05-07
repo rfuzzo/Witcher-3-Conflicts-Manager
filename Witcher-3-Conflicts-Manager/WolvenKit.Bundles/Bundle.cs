@@ -43,7 +43,7 @@ namespace WolvenKit.Bundles
         }
         public string TypeName => "Bundle";
         public string FileName { get; set; }
-        public static string Name { get; set; }
+        public string Name { get; set; }
         //public Dictionary<string, BundleItem> Items { get; set; } //FIXME unused
         public List<BundleItem> ItemsList { get; set; } = new List<BundleItem>();
         #endregion
@@ -241,7 +241,7 @@ namespace WolvenKit.Bundles
                     Compression = item.Compression,
                     DateString = item.DateString,
                     Bundle = this, //FIXME? this will create problems with accessing compressed data from Memorymappedfiles
-                    PageOffset = (uint)offset, //FIXME is that right?
+                    PageOffset = (uint)offset,
                     CRC = item.CRC //CRC = Crc32C.Crc32CAlgorithm.Compute(compressedFile.ToArray()) //FIXME is that crc over the compressed or uncompressed bytes?
                 };
                 ItemsList.Add(newItem);
@@ -418,6 +418,7 @@ namespace WolvenKit.Bundles
         }
 
         #endregion
+
     }
 
 

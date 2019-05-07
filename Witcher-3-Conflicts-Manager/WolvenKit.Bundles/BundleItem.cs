@@ -102,7 +102,7 @@ namespace WolvenKit.Bundles
                 if (CompressedBytes == null)
                 {
                     //FIXME this would happen when the BundleItem was created from a file that was created in memory.
-                    throw new InvalidBundleException("found neither a bundle nor a file to read from.");
+                    throw new InvalidBundleException("Found neither a bundle nor a file to read from.");
                 }
 
                 output.Write(CompressedBytes, 0, CompressedBytes.Length);

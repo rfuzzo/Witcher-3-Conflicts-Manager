@@ -132,45 +132,62 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
         public void Patch()
         {
             #region Debug
-/*
-            //dbg ++
-            //load bundle
-            var bundle = new Bundle(@"F:\Mods\modcleanboat\content\blob0.bundle");
-            //var bundle = new Bundle(@"F:\Mods\modcleanboat\content\buffers0.bundle");
-            List<IWitcherFile> patchFiles = new List<IWitcherFile>();
-            foreach (var file in bundle.Items)
-                patchFiles.Add(file.Value);
-              
-            //create metadata
-            string indir = @"F:\Mods\mod0000_PatchedFiles\content";
-            var ms_file = new Metadata_Store();
-            ms_file.Read(Path.Combine(indir, "wmetadata.store"));
+            /*
+                        //dbg ++
+                        //load bundle
+                        var bundle = new Bundle(@"F:\Mods\modcleanboat\content\blob0.bundle");
+                        //var bundle = new Bundle(@"F:\Mods\modcleanboat\content\buffers0.bundle");
+                        List<IWitcherFile> patchFiles = new List<IWitcherFile>();
+                        foreach (var file in bundle.Items)
+                            patchFiles.Add(file.Value);
 
-            var ms_dir = new Metadata_Store(indir);
+                        //create metadata
+                        string indir = @"F:\Mods\mod0000_PatchedFiles\content";
+                        var ms_file = new Metadata_Store();
+                        ms_file.Read(Path.Combine(indir, "wmetadata.store"));
 
-            DirectoryInfo di = new DirectoryInfo(ModDir);
-            List<DirectoryInfo> mods = di.GetDirectories("mod*", SearchOption.TopDirectoryOnly).Where(_ => _.Name != modPatchName).ToList();
-            foreach (var mdi in mods)
-            {
-                try
-                {
+                        var ms_dir = new Metadata_Store(indir);
 
-                    var tc = mdi.GetFiles("texture.cache", SearchOption.AllDirectories).ToList(); 
-                    var tcaches =  tc.Select(_ => new TextureCache(_.FullName)).ToList();
+                        DirectoryInfo di = new DirectoryInfo(ModDir);
+                        List<DirectoryInfo> mods = di.GetDirectories("mod*", SearchOption.TopDirectoryOnly).Where(_ => _.Name != modPatchName).ToList();
+                        foreach (var mdi in mods)
+                        {
+                            try
+                            {
 
-                    //var sc = mdi.GetFiles("soundspc.cache", SearchOption.AllDirectories).ToList();
-                    //var scaches = sc.Select(_ => new TextureCache(_.FullName)).ToList();
+                                var tc = mdi.GetFiles("texture.cache", SearchOption.AllDirectories).ToList(); 
+                                var tcaches =  tc.Select(_ => new TextureCache(_.FullName)).ToList();
 
-                    
-                }
-                catch (Exception)
-                {
-                    //failed to load mod, skipping
-                    throw;
-                }
-            }*/
+                                //var sc = mdi.GetFiles("soundspc.cache", SearchOption.AllDirectories).ToList();
+                                //var scaches = sc.Select(_ => new TextureCache(_.FullName)).ToList();
 
 
+                            }
+                            catch (Exception)
+                            {
+                                //failed to load mod, skipping
+                                throw;
+                            }
+                        }*/
+            //DirectoryInfo di = new DirectoryInfo(ModDir);
+            //List<DirectoryInfo> mods = di.GetDirectories("mod*", SearchOption.TopDirectoryOnly).Where(_ => _.Name != modPatchName).ToList();
+            //var mdi = mods[1];
+
+            var tc = new TextureCache(@"E:\_test\texturecaches\_in\texture.cache");
+            //var tc = new TextureCache(@"E:\moddingdir_tw3\MODSarchive\modW3EEMain\content\texture.cache");
+            //var tc = new TextureCache(@"E:\moddingdir_tw3\MODSarchive\modmargarittaclean\content\texture.cache");
+            var ntc = new TextureCache(tc.Items.ToArray());
+
+            tc.Write(@"E:\_test\texturecaches\reread");
+            ntc.Write(@"E:\_test\texturecaches\recreated");
+
+            //string outpath = Path.Combine(@"E:\", $"{tc.Items.First().Name.Split('\\').Last()}.dds");
+            //tc.Items.First().Extract(outpath);
+
+
+            //var bpath = mdi.GetFiles("blob0.bundle", SearchOption.AllDirectories).First();
+            //var b = new Bundle(bpath.FullName);
+            //b.Write("E:\\");
             //dbg --
 
             /*
@@ -188,7 +205,7 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
             */
             #endregion
 
-
+            /*
             //BUNDLES
             List<IWitcherFileWrapper> patchFiles = ConflictsList.Select(x => x.ResolvedFile()).Where(_ => _ != null).ToList();
 
@@ -223,7 +240,7 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
             ms.Write(bundleDir);
 
             ParentViewModel.ShowFinished();
-            
+            */
         }
 
 
@@ -246,12 +263,12 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
             BaseGameDir = Path.GetFullPath(Path.Combine(Properties.Settings.Default.TW3_Path, @"..\..\..\"));
             ModDir = Path.Combine(BaseGameDir, @"Mods");
 
-            LoadMods();
+            //LoadMods();
 
-            LoadBundles();
-            LoadCaches();
+            //LoadBundles();
+            //LoadCaches();
 
-            ReloadAll();
+            //ReloadAll();
         }
 
         /// <summary>
@@ -364,6 +381,8 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
             var files = BundleConflictFilesList.SelectMany(_ => _.Value);
             foreach (var f in files)
             {
+                var a = AllMods.First().ToString();
+                var b = GetModname(f);
                 var m = AllMods.Find(_ => _.ToString() == GetModname(f));
                 if (!ConflictingMods.Contains(m))
                     ConflictingMods.Add(m);
@@ -499,7 +518,31 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
 
         private static string GetModname(IWitcherFile f)
         {
-            return f.Bundle.FileName.Split('\\').Where(_ => _.Length >= 3).First(x => x.Substring(0, 3) == "mod");
+            var BaseGameDir = Path.GetFullPath(Path.Combine(Properties.Settings.Default.TW3_Path, @"..\..\..\"));
+            var ModDir = Path.Combine(BaseGameDir, @"Mods");
+            var s = GetRelativePath(f.Bundle.FileName, ModDir);
+            string modname = s.Split('\\').Where(_ => _.Length >= 3).First(x => x.Substring(0, 3) == "mod");
+            
+
+            return modname;
+        }
+
+        /// <summary>
+        /// Gets relative path from absolute path.
+        /// </summary>
+        /// <param name="filespec">A files path.</param>
+        /// <param name="folder">The folder's path.</param>
+        /// <returns></returns>
+        private static string GetRelativePath(string filespec, string folder)
+        {
+            Uri pathUri = new Uri(filespec);
+            // Folders must end in a slash
+            if (!folder.EndsWith(Path.DirectorySeparatorChar.ToString()))
+            {
+                folder += Path.DirectorySeparatorChar;
+            }
+            Uri folderUri = new Uri(folder);
+            return Uri.UnescapeDataString(folderUri.MakeRelativeUri(pathUri).ToString().Replace('/', Path.DirectorySeparatorChar));
         }
         #endregion
         #endregion

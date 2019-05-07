@@ -1,10 +1,12 @@
-﻿using Ionic.Zlib;
+﻿using DamienG.Security.Cryptography;
+using Ionic.Zlib;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.IO.MemoryMappedFiles;
 using System.Linq;
+using System.Text;
 using W3Edit.Textures;
 using WolvenKit.Common;
 using WolvenKit.CR2W;
@@ -23,39 +25,28 @@ namespace WolvenKit.Cache
         private static int FOOTER_SIZE = 32;
         private static int ALIGNMENT_TARGET = 4096;
         private static int TOCEntrySize = 52; //Size of a TOC Entry.
+        public string TypeName => "TextureCache";
 
-        private TextureCacheHeader Footer;
+        private TextureCacheFooter Footer;
         #endregion
 
         #region Properties
-        public List<TextureCacheItem> Items;
-
-        public string TypeName => "TextureCache";
+        public List<TextureCacheItem> Items { get; set; } = new List<TextureCacheItem>();
+        public List<uint> MipsOffsets { get; set; } = new List<uint>();
         public string FileName { get; set; }
 
-        public List<uint> Chunkoffsets;
-        public UInt64 Crc;
-        public UInt32 UsedPages;
-        public UInt32 EntryCount;
-        public UInt32 StringTableSize;
-        private UInt32 MipEntryCount;
-        public UInt32 Version;
-        public List<string> Names;
-
+        
         #endregion
 
         #region Constructors
         public TextureCache()
         {
-            Chunkoffsets = new List<uint>();
-            Names = new List<string>();
-            Items = new List<TextureCacheItem>();
         }
         /// <summary>
         /// Create TextureCache from a .cache file.
         /// </summary>
         /// <param name="filePath"></param>
-        public TextureCache(string filePath)
+        public TextureCache(string filePath) : base()
         {
             this.Read(filePath);
         }
@@ -63,7 +54,7 @@ namespace WolvenKit.Cache
         /// Create a TextureCache from files in a directory.
         /// </summary>
         /// <param name="dir"></param>
-        public TextureCache(DirectoryInfo dir)
+        public TextureCache(DirectoryInfo indir) : base()
         {
             Read(indir.GetFiles("*", SearchOption.AllDirectories));
         }
@@ -71,7 +62,7 @@ namespace WolvenKit.Cache
         /// Create TextureCache from a list of TextureCacheItems (compressed)
         /// </summary>
         /// <param name="_files"></param>
-        public TextureCache(TextureCacheItem[] _files)
+        public TextureCache(TextureCacheItem[] _files) : base()
         {
             Read(_files);
         }
@@ -98,13 +89,14 @@ namespace WolvenKit.Cache
             using (var fs = new FileStream(filePath, FileMode.Create))
             using (var bw = new BinaryWriter(fs))
             {
-                // Write Body
+
+                #region Body
                 foreach (TextureCacheItem item in Items)
                 {
                     //zsize, size and part
-                    bw.Write(item.ZSize);
-                    bw.Write(item.Size);
-                    bw.Write(item.Part);
+                    bw.Write((UInt32)item.CachedZSizeNoMips);
+                    bw.Write((Int32)item.CachedSizeNoMips);
+                    bw.Write((Byte)item.CachedMipsCount);
 
                     //compressed file
                     var compressedFile = new List<byte>();
@@ -114,21 +106,35 @@ namespace WolvenKit.Cache
                         compressedFile.AddRange(ms.ToArray());
                     }
 
-                    //pad body items
-                    int filesize = (int)item.ZSize;
-                    int nextOffset = GetOffset((int)item.PageOffset + filesize);
-                    int paddingLength = nextOffset - ((int)item.PageOffset + filesize);
-                    if (paddingLength > 0 )
-                        compressedFile.AddRange(new byte[paddingLength]);
-
                     bw.Write(compressedFile.ToArray());
+
+                    //write mips
+                    if (item.CachedMipsCount > 0)
+                    {
+                        using (var ms = new MemoryStream())
+                        {
+                            item.WriteMipmaps(ms);
+                            bw.Write(ms.ToArray());
+                        }
+                    }
+                    
+
+                    //pad body items
+                    long nextOffset = GetOffset((int)bw.BaseStream.Position);
+                    long paddingLength = nextOffset - (bw.BaseStream.Position);
+                    if (paddingLength > 0)
+                        bw.Write(new byte[paddingLength]);
+
+                    
                 }
+                #endregion
 
-
+                #region InfoTables
+                long infoTableStartOffset = bw.BaseStream.Position;
                 //write Mipslist
-                for (int i = 0; i < MipEntryCount; i++) //FIXME this should be dynamic I guess
+                foreach (uint o in MipsOffsets) //FIXME this should be dynamic I guess
                 {
-                    throw new NotImplementedException();
+                    bw.Write((UInt32)o);
                 }
 
                 //write Namestable
@@ -144,7 +150,27 @@ namespace WolvenKit.Cache
                 }
 
                 //write footer //FIXME make dynamic
+                if (Footer.Crc == 0) // 0 when cache is not parsed from file
+                {
+                    long footerStartOffset = bw.BaseStream.Position;
+                    int stringtablelength = (int)(footerStartOffset - infoTableStartOffset);
+                    using (var ms = new MemoryStream())
+                    {
+                        byte[] buffer = new byte[stringtablelength];
+                        bw.BaseStream.Position = infoTableStartOffset;
+                        bw.BaseStream.CopyTo(ms);
+                        ms.Seek(0, SeekOrigin.Begin);
+                        ms.Read(buffer, 0, stringtablelength);
+
+                        var crc = FNV1a.HashFNV1a64(buffer);
+
+                        Footer.Crc = crc;
+                    }
+                }
+
+                
                 Footer.Write(bw);
+                #endregion
             }
         }
         #endregion
@@ -159,23 +185,17 @@ namespace WolvenKit.Cache
             try
             {
                 FileName = filepath;
-                Chunkoffsets = new List<uint>();
                 using (var br = new BinaryReader(new FileStream(filepath, FileMode.Open)))
                 {
                     Items = new List<TextureCacheItem>();
 
                     #region Footer
                     br.BaseStream.Seek(-32, SeekOrigin.End);
-                    Crc = br.ReadUInt64();
-                    UsedPages = br.ReadUInt32();
-                    EntryCount = br.ReadUInt32();
-                    StringTableSize = br.ReadUInt32();
-                    MipEntryCount = br.ReadUInt32();
-                    var _IDString = br.ReadBytes(IDString.Length);
-                    Version = br.ReadUInt32();
+                    Footer = new TextureCacheFooter();
+                    Footer.Read(br);
 
                     //errorhandling
-                    if (!IDString.SequenceEqual(_IDString))
+                    if (!IDString.SequenceEqual(Footer.IDString))
                         throw new InvalidCacheException("Cache header mismatch.");
                     //errorhandling
 
@@ -188,14 +208,14 @@ namespace WolvenKit.Cache
                     //The stringtable
                     //Every offset is 4 bytes
                     //The sum of this is how much we need to jump from the back
-                    var jmp = -(32 + (EntryCount * 52) + StringTableSize + (MipEntryCount * 4));
+                    var jmp = -(32 + (Footer.EntryCount * 52) + Footer.StringTableSize + (Footer.MipEntryCount * 4));
                     br.BaseStream.Seek(jmp, SeekOrigin.End);
                     var jmpoffset = br.BaseStream.Position;
 
                     //Mips
-                    for (var i = 0; i < MipEntryCount; i++)
+                    for (var i = 0; i < Footer.MipEntryCount; i++)
                     {
-                        Chunkoffsets.Add(br.ReadUInt32());
+                        MipsOffsets.Add(br.ReadUInt32());
                     }
 
                     //Names
@@ -214,25 +234,37 @@ namespace WolvenKit.Cache
                     * -- prone to error, have some error handling with br.streampos
                     * - not at all clear how the duplicate names correspond to the entrytable
                     * -- TODO
+                    * - As a twist, there are actually duplicate file NAMES (but different compressed files) inside the bob texture.cache
+                    * - which breaks any way of solving the w3ee problem
                     * -fuzzo
                     */
-                    Names = new List<string>();
-                    var entrytableoffset = jmpoffset + (MipEntryCount * 4) + StringTableSize;
+                    var Names = new List<string>();
+                    var entrytableoffset = jmpoffset + (Footer.MipEntryCount * 4) + Footer.StringTableSize;
                     while (br.BaseStream.Position < entrytableoffset)
                     {
                         string entryname = br.ReadCR2WString();
-                        if (!Names.Contains(entryname))
-                            Names.Add(entryname);
+                        //if (!Names.Contains(entryname)) //FIXME
+                        Names.Add(entryname);
                     }
 
                     //errorhandling
-                    if (br.BaseStream.Position != entrytableoffset)
-                        throw new NotImplementedException();
+                    if (Footer.EntryCount != Names.Count)
+                    {
+                        //try resolving the error
+                        var resolvedNames = Names.Distinct().ToList();
+                        if (Footer.EntryCount == resolvedNames.Count)
+                        {
+                            Names = resolvedNames;
+                        }
+                        else
+                            throw new NotImplementedException();
+                    }
+
                     //errorhandling
 
                     //Entries
                     br.BaseStream.Seek(entrytableoffset, SeekOrigin.Begin);
-                    for (var i = 0; i < EntryCount; i++)
+                    for (var i = 0; i < Footer.EntryCount; i++)
                     {
                         var ti = new TextureCacheItem(this)
                         {
@@ -241,16 +273,18 @@ namespace WolvenKit.Cache
                             Hash = br.ReadInt32(),
                             /*-------------TextureCacheEntryBase---------------*/
                             PathStringIndex = br.ReadInt32(),
-                            PageOffset = br.ReadInt32(),
-                            CompressedSize = br.ReadInt32(),
-                            UncompressedSize = br.ReadInt32(),
+                            PageOffset = br.ReadInt32(), //NOTE: texturecache pointers are stored as pagenumber, while bundleitems store absolute offset -_-
+                            ZSize = (uint)br.ReadInt32(),
+                            Size = br.ReadInt32(),
                             BaseAlignment = br.ReadUInt32(),
+
                             BaseWidth = br.ReadUInt16(),
                             BaseHeight = br.ReadUInt16(),
-                            Mipcount = br.ReadUInt16(),
+                            TotalMipsCount = br.ReadUInt16(),
                             SliceCount = br.ReadUInt16(),
+
                             MipOffsetIndex = br.ReadInt32(),
-                            NumMipOffsets = br.ReadInt32(),
+                            MipsCount = br.ReadInt32(),
                             TimeStamp = br.ReadInt64(),
                             /*-------------TextureCacheEntryBase---------------*/
                             Type = br.ReadInt16(),
@@ -271,9 +305,9 @@ namespace WolvenKit.Cache
                     {
                         TextureCacheItem t = Items[i];
                         br.BaseStream.Seek(t.PageOffset * 4096, SeekOrigin.Begin);
-                        t.ZSize = br.ReadUInt32(); //Compressed size
-                        t.Size = br.ReadInt32(); //Uncompressed size
-                        t.Part = br.ReadByte(); //maybe the 48bit part of OFFSET
+                        t.CachedZSizeNoMips = br.ReadUInt32(); //Compressed size
+                        t.CachedSizeNoMips = br.ReadInt32(); //Uncompressed size
+                        t.CachedMipsCount = br.ReadByte(); //mips count
                     }
                     #endregion
                 }
@@ -281,124 +315,248 @@ namespace WolvenKit.Cache
             catch (Exception e)
             {
                 Debug.Assert(e != null);
+                throw new InvalidCacheException("reading error");
             }
         }
+
         /// <summary>
-        /// Reads a list of TextureCacheItems.
+        /// Reads a list of TextureCacheItems. (compressed)
         /// </summary>
         /// <param name="_files"></param>
         private void Read(params TextureCacheItem[] _files)
         {
-            foreach (var f in _files)
+            //stringtable
+            var stringTable = new Dictionary<int, int>();
+            int stoffset = 0;
+            var relMipsTable = new Dictionary<int, uint[]>();
+            for (int i = 0; i < _files.Length; i++)
             {
+                TextureCacheItem f = _files[i];
+                stringTable.Add( i, stoffset);
+                stoffset += f.Name.Length + 1;
 
-                //compressed file
-                var compressedFile = new List<byte>();
+                //mipmaps
+                relMipsTable.Add(i ,f.GetMipsOffsettable());
+            }
+
+            //entrytable
+            long offset = 0;
+            for (int i = 0; i < _files.Length; i++)
+            {
+                TextureCacheItem f = (TextureCacheItem)_files[i];
+                long nextOffset = GetOffset(offset + (int)f.ZSize);
+
+                //get compressed bytes from file, since we can't access the old file anymore (via item.bundle)
+                byte[] compressedBytes = new byte[f.CachedZSizeNoMips];
                 using (var ms = new MemoryStream())
                 {
                     f.GetCompressedFile(ms);
-                    compressedFile.AddRange(ms.ToArray());
+                    compressedBytes = ms.ToArray();
                 }
-                //List<byte> compressedFile = CompressFile(uc, (int)((BundleItem)item).Compression).ToList();
-                //padding
-                int filesize = (int)f.ZSize;
-                int offset = compressedFile.Count;
-                int nextOffset = GetOffset(offset + filesize);
-                int paddingLength = nextOffset - (offset + filesize);
-                if (paddingLength > 0 && i < (Items.Count - 1)) //don't pad the last item
-                    compressedFile.AddRange(new byte[paddingLength]);
+                    
 
+                //calculate mipoffset
+                var mo = relMipsTable.Where(_ => _.Key < i).SelectMany(_ => _.Value).Count();
+                var l = relMipsTable[i];
+                for (int j = 0; j < relMipsTable[i].Count(); j++)
+                    l[j] += f.CachedZSizeNoMips + 9;
+                MipsOffsets.AddRange(l);
 
+                if (offset / ALIGNMENT_TARGET < 0)
+                {
 
+                }
 
-            }
+                TextureCacheItem newItem = new TextureCacheItem(f.Bundle) //FIXME reparent? //if I reparent, I need to store the compressed data in memory, if not, I leave the old bundle inside
+                {
+                    CachedMipsCount = f.CachedMipsCount,
+                    CachedZSizeNoMips = f.CachedZSizeNoMips,
+                    CachedSizeNoMips = f.CachedSizeNoMips,
 
+                    CompressedBytes = compressedBytes,
+                    Name = f.Name,
+                    Hash = f.Hash,
+                    /*-------------TextureCacheEntryBase---------------*/
+                    PathStringIndex = stringTable[i],
+                    PageOffset = offset / ALIGNMENT_TARGET,
+                    ZSize = f.ZSize,
+                    Size = f.Size,
+                    BaseAlignment = f.BaseAlignment,
+                    BaseWidth = f.BaseWidth,
+                    BaseHeight = f.BaseHeight,
+                    TotalMipsCount = f.TotalMipsCount,
+                    SliceCount = f.SliceCount,
+                    MipOffsetIndex = mo,
+                    MipsCount = f.MipsCount,
+                    TimeStamp = f.TimeStamp,
+                    /*-------------TextureCacheEntryBase---------------*/
+                    Type = f.Type,
+                    IsCube = f.IsCube
+                };
+                Items.Add(newItem);
 
+                offset = nextOffset;
+            }            
 
-
-
-
-
-            //construct entrytable
-
-            //construct body
-
-            //construct footer
-            EntryCount = (UInt32)Items.Count;
-            Version = (UInt32)6;
-            Crc = 0;
-            UsedPages = 0;
-            StringTableSize = 0;
-            MipEntryCount = 0;
+            //create footer
+            Footer = new TextureCacheFooter
+            {
+                Crc = 0, //FIXME make dynamic
+                UsedPages = (UInt32)(offset / ALIGNMENT_TARGET),
+                EntryCount = (UInt32)Items.Count,
+                StringTableSize = (UInt32)stoffset,
+                MipEntryCount = (uint)MipsOffsets.Count,
+                IDString = IDString,
+            };
         }
 
+        /// <summary>
+        /// Reads a list of IWitcherFiles. (uncompressed)
+        /// </summary>
+        /// <param name="_files"></param>
         private void Read(params IWitcherFile[] _files)
         {
-
+            throw new NotImplementedException();
         }
 
-
-
-        private static int GetOffset(int minPos)
+        /// <summary>
+        /// Generate a bundle from a list of binary Files. (uncompressed)
+        /// </summary>
+        /// <param name="Files"></param>
+        private void Read(FileInfo[] _files)
         {
-            int firstValidPos = (minPos / ALIGNMENT_TARGET) * ALIGNMENT_TARGET + ALIGNMENT_TARGET;
+            //stringtable
+            var stringTable = new Dictionary<string, int>();
+            int stoffset = 0;
+            foreach (var f in _files)
+            {
+                stringTable.Add(GetRelativePath(f.FullName, f.Directory.FullName), stoffset);
+                stoffset += f.Name.Length + 1;
+            }
+
+            long offset = 0;
+            foreach (FileInfo f in _files)
+            {
+                //get the raw bytes
+                var rawbytes = File.ReadAllBytes(f.FullName);
+                var compressedBytes = LZ4.LZ4Codec.EncodeHC(rawbytes, 0, rawbytes.Length); //FIXME
+
+                //padding
+                long nextOffset = GetOffset(offset + compressedBytes.Length);
+
+                TextureCacheItem newItem = new TextureCacheItem(this)
+                {
+                    CompressedBytes = compressedBytes,
+                    Name = GetRelativePath(f.FullName, f.Directory.FullName),
+                    Hash = 0, //FIXME
+                    /*-------------TextureCacheEntryBase---------------*/
+                    PathStringIndex = stringTable[f.Name],
+                    PageOffset = offset / ALIGNMENT_TARGET,
+                    ZSize = (uint)compressedBytes.Length,
+                    Size = rawbytes.Length,
+                    BaseAlignment = 0, //FIXME
+                    BaseWidth = 0, //FIXME
+                    BaseHeight = 0, //FIXME
+                    TotalMipsCount = 0, //FIXME
+                    SliceCount = 0, //FIXME
+                    MipOffsetIndex = 0, //FIXME
+                    MipsCount = 0, //FIXME
+                    TimeStamp = 0, //FIXME
+                    /*-------------TextureCacheEntryBase---------------*/
+                    Type = 0, //FIXME
+                    IsCube = 0, //FIXME
+
+                };
+                Items.Add(newItem);
+
+                offset = nextOffset;
+            }
+
+            //create footer
+            Footer = new TextureCacheFooter
+            {
+                Crc = 0, //FIXME
+                UsedPages = (UInt32)(offset / ALIGNMENT_TARGET),
+                EntryCount = (UInt32)Items.Count,
+                StringTableSize = (UInt32)stoffset,
+                MipEntryCount = 0, //FIXME
+                IDString = IDString,
+            };
+        }
+
+        /// <summary>
+        /// Calculate the next possible alignment target from an offset.
+        /// </summary>
+        /// <param name="minPos"></param>
+        /// <returns></returns>
+        private static long GetOffset(long minPos)
+        {
+            long firstValidPos = (minPos / ALIGNMENT_TARGET) * ALIGNMENT_TARGET + ALIGNMENT_TARGET;
             while (firstValidPos < minPos)
             {
                 firstValidPos += ALIGNMENT_TARGET;
             }
             return firstValidPos;
         }
+
+        /// <summary>
+        /// Gets relative path from absolute path.
+        /// </summary>
+        /// <param name="filespec">A files path.</param>
+        /// <param name="folder">The folder's path.</param>
+        /// <returns></returns>
+        private static string GetRelativePath(string filespec, string folder)
+        {
+            Uri pathUri = new Uri(filespec);
+            // Folders must end in a slash
+            if (!folder.EndsWith(Path.DirectorySeparatorChar.ToString()))
+            {
+                folder += Path.DirectorySeparatorChar;
+            }
+            Uri folderUri = new Uri(folder);
+            return Uri.UnescapeDataString(folderUri.MakeRelativeUri(pathUri).ToString().Replace('/', Path.DirectorySeparatorChar));
+        }
         #endregion
-
-
-
-
-
-
     }
 
-    public class InvalidCacheException : Exception
-    {
-        public InvalidCacheException(string message) : base(message)
-        {
-        }
-    }
+    
 
-    public class TextureCacheHeader
+    public class TextureCacheFooter
     {
+        public UInt64 Crc;
+        public UInt32 UsedPages;
+        public UInt32 EntryCount;
+        public UInt32 StringTableSize;
+        public UInt32 MipEntryCount;
         public byte[] IDString;
-        public uint Bundlesize;
-        private uint Dummysize;
-        public uint TocRealSize;
+        public UInt32 Version= 6;
 
-        public TextureCacheHeader()
+        public TextureCacheFooter()
         {
 
         }
 
-        public TextureCacheHeader(byte[] idstring, uint bundlesize, uint dummysize, uint tocrealsize)
-        {
-            IDString = idstring;
-            Bundlesize = bundlesize;
-            Dummysize = dummysize;
-            TocRealSize = tocrealsize;
-        }
 
         public void Write(BinaryWriter bw)
         {
+            bw.Write(Crc);
+            bw.Write(UsedPages);
+            bw.Write(EntryCount);
+            bw.Write(StringTableSize);
+            bw.Write(MipEntryCount);
             bw.Write(IDString);
-            bw.Write(Bundlesize);
-            bw.Write(Dummysize);
-            bw.Write(TocRealSize);
-            bw.Write(new byte[] { 0x03, 0x00, 0x01, 0x00, 0x00, 0x13, 0x13, 0x13, 0x13, 0x13, 0x13, 0x13 }); //TODO: Figure out what the hell is this.
+            bw.Write(Version);
         }
 
         public void Read(BinaryReader br)
         {
-            IDString = br.ReadBytes(8);
-            Bundlesize = br.ReadUInt32();
-            Dummysize = br.ReadUInt32();
-            TocRealSize = br.ReadUInt32();
+            Crc = br.ReadUInt64();
+            UsedPages = br.ReadUInt32();
+            EntryCount = br.ReadUInt32();
+            StringTableSize = br.ReadUInt32();
+            MipEntryCount = br.ReadUInt32();
+            IDString = br.ReadBytes(4);
+            Version = br.ReadUInt32();
         }
     }
 
