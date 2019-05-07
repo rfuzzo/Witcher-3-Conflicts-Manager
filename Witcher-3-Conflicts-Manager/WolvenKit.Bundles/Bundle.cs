@@ -231,9 +231,16 @@ namespace WolvenKit.Bundles
             foreach (BundleItem item in Files)
             {
                 int nextOffset = GetOffset(offset + (int)item.ZSize);
+                byte[] buffer = new byte[item.ZSize];
+                using (var ms = new MemoryStream())
+                {
+                    item.GetCompressedFile(ms);
+                    buffer = ms.ToArray();
+                }
 
                 BundleItem newItem = new BundleItem()
                 {
+                    CompressedBytes = buffer,
                     Name = item.Name,
                     Hash = item.Hash, //FIXME?
                     Size = item.Size,

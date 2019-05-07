@@ -99,14 +99,22 @@ namespace WolvenKit.Cache
                     bw.Write((Byte)item.CachedMipsCount);
 
                     //compressed file
-                    var compressedFile = new List<byte>();
-                    using (var ms = new MemoryStream())
+                    byte[] compressedFile = new byte[item.CachedZSizeNoMips];
+                    if (item.CompressedBytes != null)
                     {
-                        item.GetCompressedFile(ms);
-                        compressedFile.AddRange(ms.ToArray());
+                        compressedFile = item.CompressedBytes;
                     }
+                    else
+                    {
+                        using (var ms = new MemoryStream())
+                        {
+                            item.GetCompressedFile(ms);
+                            compressedFile = ms.ToArray();
+                        }
+                    }
+                    
 
-                    bw.Write(compressedFile.ToArray());
+                    bw.Write(compressedFile);
 
                     //write mips
                     if (item.CachedMipsCount > 0)

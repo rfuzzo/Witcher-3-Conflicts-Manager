@@ -133,8 +133,9 @@ namespace Witcher_3_Conflicts_Manager.Models
 
         public override string ToString()
         {
-            return File.Bundle.FileName.Split('\\').Where(_ => _.Length >= 3).First(_ => _.Substring(0, 3) == "mod");
+            return File.Bundle.FileName.Split('\\').Where(_ => _.Length >= 3).Last(_ => _.Substring(0, 3) == "mod");
         }
+
 
     }
 

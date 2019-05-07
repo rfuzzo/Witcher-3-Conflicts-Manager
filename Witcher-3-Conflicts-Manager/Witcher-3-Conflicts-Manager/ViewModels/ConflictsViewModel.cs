@@ -68,8 +68,23 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
             {
                 if (_selectedConflict != value)
                 {
+                    //FIXME dispose of images when conflict is changed
+                    if (_selectedConflict != null)
+                    {
+                        foreach (var item in _selectedConflict.Items)
+                        {
+                            if (item != null)
+                                item.Image = null;
+                        }  
+                    }
+                     
+
                     _selectedConflict = value;
                     OnPropertyChanged();
+
+                    
+
+
                 }
             }
         }
@@ -78,7 +93,6 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
         public IWitcherFileWrapper SelectedFile
         {
             get {
-                //return SelectedConflict?.ResolvedFile();
                 return _selectedFile;
             }
             set
@@ -108,13 +122,14 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
             if (wfw.Image == null && wfw.File is TextureCacheItem)
             {
                 IWitcherFile wf = wfw.File;
-                Bitmap bmp;
                 using (var ms = new MemoryStream())
                 {
                     wf.Extract(ms);
-                    bmp = new DdsImage(ms.ToArray()).BitmapImage;
+                    Bitmap bmp = new DdsImage(ms.ToArray()).BitmapImage;
+                    wfw.Image = BitmapToImageSource(bmp);
+                    bmp.Dispose();
                 }
-                wfw.Image = BitmapToImageSource(bmp);
+
             }
 
             SelectedFile = wfw;
@@ -168,7 +183,7 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
                                 //failed to load mod, skipping
                                 throw;
                             }
-                        }*/
+                        }
             //DirectoryInfo di = new DirectoryInfo(ModDir);
             //List<DirectoryInfo> mods = di.GetDirectories("mod*", SearchOption.TopDirectoryOnly).Where(_ => _.Name != modPatchName).ToList();
             //var mdi = mods[1];
@@ -190,7 +205,7 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
             //b.Write("E:\\");
             //dbg --
 
-            /*
+            
             //CACHES
             List<IWitcherFileWrapper> patchFiles = ConflictsList.Select(x => x.ResolvedFile()).Where(_ => _ != null).ToList();
             List<IWitcherFile> cacheFiles = patchFiles.Select(_ => _.File).ToList();
@@ -201,11 +216,11 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
             foreach (var cf in cacheFiles)
             {
                 
-            } 
-            */
+            } */
+            
             #endregion
 
-            /*
+            
             //BUNDLES
             List<IWitcherFileWrapper> patchFiles = ConflictsList.Select(x => x.ResolvedFile()).Where(_ => _ != null).ToList();
 
@@ -222,14 +237,19 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
                 Directory.CreateDirectory(bundleDir);
             //blob
             List<Bundle> bundles = new List<Bundle>();
+
             if (blobFiles.Count > 0)
                 bundles.Add( new Bundle(blobFiles.ToArray()));
             //buffers
             if (bufferFiles.Count > 0)
                 bundles.Add(new Bundle(bufferFiles.ToArray()));
+            //if (cacheFiles.Count > 0)
+            var tc = new TextureCache(cacheFiles.ToArray());
+
             foreach (var b in bundles)
                 b.Write(bundleDir);
-                
+            tc.Write(bundleDir);
+             
 
             //create metadata
             //var ms = new Metadata_Store(bundles.ToArray()); 
@@ -240,7 +260,7 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
             ms.Write(bundleDir);
 
             ParentViewModel.ShowFinished();
-            */
+            
         }
 
 
@@ -263,12 +283,12 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
             BaseGameDir = Path.GetFullPath(Path.Combine(Properties.Settings.Default.TW3_Path, @"..\..\..\"));
             ModDir = Path.Combine(BaseGameDir, @"Mods");
 
-            //LoadMods();
+            LoadMods();
 
-            //LoadBundles();
-            //LoadCaches();
+            LoadBundles();
+            LoadCaches();
 
-            //ReloadAll();
+            ReloadAll();
         }
 
         /// <summary>
@@ -474,8 +494,9 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
                         //find matching parent 
                         foreach (var f in buffers)
                         {
-                            var splits = f.Bundle.FileName.Split('\\').ToList();
-                            var modname = splits.Where(_ => _.Length >= 3).First(_ => _.Substring(0, 3) == "mod");
+                            //var splits = f.Bundle.FileName.Split('\\').ToList();
+                            //var modname = splits.Where(_ => _.Length >= 3).First(_ => _.Substring(0, 3) == "mod");
+                            var modname = GetModname(f);
 
                             parentfiles.First(_ => _.ToString() == modname).Buffer = f;
                         }
