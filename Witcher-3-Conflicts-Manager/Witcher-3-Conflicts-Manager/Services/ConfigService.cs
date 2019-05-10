@@ -77,9 +77,10 @@ namespace Witcher_3_Conflicts_Manager.Services
                 }
                 catch (Exception ex)
                 {
-                    throw ex;
+                   
                     // file is bugged and should be deleted
-                    File.Delete(outfile); //FIXME
+                    File.Delete(outfile);
+                    throw ex;
                     return false;
                 }
             }

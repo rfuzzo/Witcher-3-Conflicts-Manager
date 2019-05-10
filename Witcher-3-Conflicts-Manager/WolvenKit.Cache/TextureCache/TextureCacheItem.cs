@@ -42,9 +42,10 @@ namespace WolvenKit.Cache
         public Byte CachedMipsCount { get; set; } //cached mipmaps count
         public UInt32 CachedZSizeNoMips { get; set; } //compressed size without mipmaps
         public Int32 CachedSizeNoMips { get; set; } //uncompressed size without mipmaps
-        public string CompressionType => "Zlib";
-        
-        public byte[] CompressedBytes { get; set; }
+        public CompressionType CompressionType => CompressionType.ZLib;
+
+        public string BundlePath { get; set; }
+        public string FilePath { get; set; }
         public int MipMapSize => (int)(ZSize - CachedZSizeNoMips - 9);
 
         public enum ETextureFormat
@@ -108,7 +109,7 @@ namespace WolvenKit.Cache
 
         public void GetCompressedFile(Stream output)
         {
-            if (File.Exists(Bundle.FileName))
+            if (File.Exists(Bundle.FileName) || File.Exists(BundlePath))
             {
                 using (var file = MemoryMappedFile.CreateFromFile(Bundle.FileName, FileMode.Open))
                 {
@@ -118,15 +119,23 @@ namespace WolvenKit.Cache
                     }
                 }
             }
+            else if (File.Exists(FilePath))
+            {
+                using (var file = MemoryMappedFile.CreateFromFile(FilePath, FileMode.Open))
+                {
+                    using (var vs = file.CreateViewStream())
+                    {
+                        var buffer = new byte[vs.Length];
+                        var c = vs.Read(buffer, 0, buffer.Length);
+                        var compressed = LZ4.LZ4Codec.EncodeHC(buffer, 0, buffer.Length);
+
+                        output.Write(compressed, 0, compressed.Length);
+                    }
+                }
+            }
             else
             {
-                if (CompressedBytes == null)
-                {
-                    //FIXME this would happen when the BundleItem was created from a file that was created in memory.
-                    throw new InvalidCacheException("Found neither a bundle nor a file to read from.");
-                }
-
-                output.Write(CompressedBytes, 0, CompressedBytes.Length);
+                throw new InvalidCacheException("Found neither a bundle nor a file to read from.");
             }
         }
 
@@ -234,8 +243,6 @@ namespace WolvenKit.Cache
                         tempDict[i] = (uint)relOffset;
                         br.BaseStream.Seek(length, SeekOrigin.Current);
                     }
-                    //MipMapSize = (int)br.BaseStream.Position; //FIXME move this?
-                    //errorhandling?
                 }
                 return tempDict;
             }

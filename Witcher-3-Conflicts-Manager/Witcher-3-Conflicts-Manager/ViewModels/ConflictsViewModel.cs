@@ -17,6 +17,7 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
     using Commands;
     using Models;
     using System.Drawing.Imaging;
+    using System.Windows.Media;
     using System.Windows.Media.Imaging;
 
 
@@ -68,23 +69,22 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
             {
                 if (_selectedConflict != value)
                 {
-                    //FIXME dispose of images when conflict is changed
-                    if (_selectedConflict != null)
-                    {
-                        foreach (var item in _selectedConflict.Items)
-                        {
-                            if (item != null)
-                                item.Image = null;
-                        }  
-                    }
-                     
-
                     _selectedConflict = value;
                     OnPropertyChanged();
+                }
+            }
+        }
 
-                    
-
-
+        private ImageSource _selectedImage;
+        public ImageSource SelectedImage
+        {
+            get => _selectedImage;
+            set
+            {
+                if (_selectedImage != value)
+                {
+                    _selectedImage = value;
+                    OnPropertyChanged();
                 }
             }
         }
@@ -92,9 +92,7 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
         private IWitcherFileWrapper _selectedFile;
         public IWitcherFileWrapper SelectedFile
         {
-            get {
-                return _selectedFile;
-            }
+            get => _selectedFile;
             set
             {
                 if (_selectedFile != value)
@@ -119,17 +117,17 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
         #region Command Implementation
         public void Select(IWitcherFileWrapper wfw)
         {
-            if (wfw.Image == null && wfw.File is TextureCacheItem)
+            // extract image and disply it in the imagecontrol (binding)
+            if (wfw.File is TextureCacheItem)
             {
                 IWitcherFile wf = wfw.File;
                 using (var ms = new MemoryStream())
                 {
                     wf.Extract(ms);
                     Bitmap bmp = new DdsImage(ms.ToArray()).BitmapImage;
-                    wfw.Image = BitmapToImageSource(bmp);
+                    SelectedImage = BitmapToImageSource(bmp);
                     bmp.Dispose();
                 }
-
             }
 
             SelectedFile = wfw;
@@ -146,81 +144,7 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
         /// </summary>
         public void Patch()
         {
-            #region Debug
-            /*
-                        //dbg ++
-                        //load bundle
-                        var bundle = new Bundle(@"F:\Mods\modcleanboat\content\blob0.bundle");
-                        //var bundle = new Bundle(@"F:\Mods\modcleanboat\content\buffers0.bundle");
-                        List<IWitcherFile> patchFiles = new List<IWitcherFile>();
-                        foreach (var file in bundle.Items)
-                            patchFiles.Add(file.Value);
 
-                        //create metadata
-                        string indir = @"F:\Mods\mod0000_PatchedFiles\content";
-                        var ms_file = new Metadata_Store();
-                        ms_file.Read(Path.Combine(indir, "wmetadata.store"));
-
-                        var ms_dir = new Metadata_Store(indir);
-
-                        DirectoryInfo di = new DirectoryInfo(ModDir);
-                        List<DirectoryInfo> mods = di.GetDirectories("mod*", SearchOption.TopDirectoryOnly).Where(_ => _.Name != modPatchName).ToList();
-                        foreach (var mdi in mods)
-                        {
-                            try
-                            {
-
-                                var tc = mdi.GetFiles("texture.cache", SearchOption.AllDirectories).ToList(); 
-                                var tcaches =  tc.Select(_ => new TextureCache(_.FullName)).ToList();
-
-                                //var sc = mdi.GetFiles("soundspc.cache", SearchOption.AllDirectories).ToList();
-                                //var scaches = sc.Select(_ => new TextureCache(_.FullName)).ToList();
-
-
-                            }
-                            catch (Exception)
-                            {
-                                //failed to load mod, skipping
-                                throw;
-                            }
-                        }
-            //DirectoryInfo di = new DirectoryInfo(ModDir);
-            //List<DirectoryInfo> mods = di.GetDirectories("mod*", SearchOption.TopDirectoryOnly).Where(_ => _.Name != modPatchName).ToList();
-            //var mdi = mods[1];
-
-            var tc = new TextureCache(@"E:\_test\texturecaches\_in\texture.cache");
-            //var tc = new TextureCache(@"E:\moddingdir_tw3\MODSarchive\modW3EEMain\content\texture.cache");
-            //var tc = new TextureCache(@"E:\moddingdir_tw3\MODSarchive\modmargarittaclean\content\texture.cache");
-            var ntc = new TextureCache(tc.Items.ToArray());
-
-            tc.Write(@"E:\_test\texturecaches\reread");
-            ntc.Write(@"E:\_test\texturecaches\recreated");
-
-            //string outpath = Path.Combine(@"E:\", $"{tc.Items.First().Name.Split('\\').Last()}.dds");
-            //tc.Items.First().Extract(outpath);
-
-
-            //var bpath = mdi.GetFiles("blob0.bundle", SearchOption.AllDirectories).First();
-            //var b = new Bundle(bpath.FullName);
-            //b.Write("E:\\");
-            //dbg --
-
-            
-            //CACHES
-            List<IWitcherFileWrapper> patchFiles = ConflictsList.Select(x => x.ResolvedFile()).Where(_ => _ != null).ToList();
-            List<IWitcherFile> cacheFiles = patchFiles.Select(_ => _.File).ToList();
-            //create cache
-            string bundleDir = Path.Combine(ModDir, modPatchName, "extracted");
-            if (!Directory.Exists(bundleDir))
-                Directory.CreateDirectory(bundleDir);
-            foreach (var cf in cacheFiles)
-            {
-                
-            } */
-            
-            #endregion
-
-            
             //BUNDLES
             List<IWitcherFileWrapper> patchFiles = ConflictsList.Select(x => x.ResolvedFile()).Where(_ => _ != null).ToList();
 
@@ -252,10 +176,6 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
              
 
             //create metadata
-            //var ms = new Metadata_Store(bundles.ToArray()); 
-            //FIXME broken for custom bundle names because of reparenting bundleItems 
-            //and new bundles in memory don't have filepaths
-            //which are needed to compress files since trade used a memorymapped stream
             var ms = new Metadata_Store(bundleDir);
             ms.Write(bundleDir);
 
@@ -322,7 +242,7 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
                     var bundles = mdi.GetFiles("*.bundle", SearchOption.AllDirectories).ToList();
                     mw.Bundles = bundles.Select(_ => new Bundle(_.FullName)).ToList();
 
-                    var caches = mdi.GetFiles("texture.cache", SearchOption.AllDirectories).ToList(); //fixme soundcaches?
+                    var caches = mdi.GetFiles("texture.cache", SearchOption.AllDirectories).ToList();
                     mw.Caches = caches.Select(_ => new TextureCache(_.FullName)).ToList();
 
                     AllMods.Add(mw);
@@ -380,7 +300,7 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
             var Items = new Dictionary<string, List<IWitcherFile>>();
             foreach (var b in AllBundles)
             {
-                foreach (var item in b.ItemsList)
+                foreach (var item in b.Items)
                 {
                     //filter conflicts
                     string ext = item.Name.Split('\\').Last().Split('.').Last();
@@ -487,7 +407,7 @@ namespace Witcher_3_Conflicts_Manager.ViewModels
                     if (ext == "buffer")
                     {
                         List<BundleItem> buffers = c.Value.Select(_ => _ as BundleItem).ToList();
-                        string parentfilename = c.Key.Substring(0, c.Key.Length - 9); //FIXME trim ".1.buffer"
+                        string parentfilename = c.Key.Substring(0, c.Key.Length - 9); //trim ".1.buffer"
                         parentfilename = parentfilename.Split('\\').Last();
                         //list of files for buffers
                         var parentfiles = ConflictsList.First(_ => _.Name == parentfilename).Items.ToList();

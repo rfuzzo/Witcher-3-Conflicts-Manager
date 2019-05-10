@@ -77,7 +77,7 @@ namespace Witcher_3_Conflicts_Manager.Models
 
         public DirectoryInfo Dir { get; set; }
         public List<Bundle> Bundles { get; set; }
-        public List<TextureCache> Caches { get; set; } //FIXME
+        public List<TextureCache> Caches { get; set; }
 
         public override string ToString()
         {

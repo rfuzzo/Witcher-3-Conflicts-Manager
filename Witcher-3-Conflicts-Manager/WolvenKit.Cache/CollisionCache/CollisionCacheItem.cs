@@ -20,7 +20,7 @@ namespace WolvenKit.Cache.CollisionCache
         public long Size { get; set; }
         public uint ZSize { get; set; }
         public long PageOffset { get; set; }
-        public string CompressionType => "Zlib";
+        public CompressionType CompressionType => CompressionType.ZLib;
 
         public ulong Unk1; //NULL
         public ulong NameOffset;

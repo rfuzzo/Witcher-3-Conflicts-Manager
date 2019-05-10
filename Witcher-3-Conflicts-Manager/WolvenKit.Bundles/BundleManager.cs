@@ -38,7 +38,7 @@ namespace WolvenKit.Bundles
 
             var bundle = new Bundle(filename);
 
-            Dictionary<string, BundleItem> itemsDict = bundle.ItemsList.ToDictionary(_ => _.Name, _ => _);
+            Dictionary<string, BundleItem> itemsDict = bundle.Items.ToDictionary(_ => _.Name, _ => _);
             foreach (var item in itemsDict)
             {
                 if (!Items.ContainsKey(GetModFolder(filename) + "\\" + item.Key))
@@ -61,7 +61,7 @@ namespace WolvenKit.Bundles
 
             var bundle = new Bundle(filename);
 
-            Dictionary<string, BundleItem> itemsDict = bundle.ItemsList.ToDictionary(_ => _.Name, _ => _);
+            Dictionary<string, BundleItem> itemsDict = bundle.Items.ToDictionary(_ => _.Name, _ => _);
             foreach (var item in itemsDict)
             {
                 if (!Items.ContainsKey(item.Key))

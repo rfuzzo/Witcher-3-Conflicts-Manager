@@ -5,7 +5,7 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{17CF5901-6E1F-467F-AFE0-3CC04DC9688A}</ProjectGuid>
-    <OutputType>Exe</OutputType>
+    <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>WolvenKit.Cache</RootNamespace>
     <AssemblyName>WolvenKit.Cache</AssemblyName>
@@ -124,6 +124,7 @@
     <Compile Include="TextureCache\TextureCacheItem.cs" />
     <Compile Include="TextureCache\TextureManager.cs" />
     <Compile Include="TextureCache\Texture_Cache.cs" />
+    <Compile Include="Types\TextureCacheFooter.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
@@ -139,9 +140,7 @@
       <Name>WolvenKit.CR2W</Name>
     </ProjectReference>
   </ItemGroup>
-  <ItemGroup>
-    <Folder Include="Types\" />
-  </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

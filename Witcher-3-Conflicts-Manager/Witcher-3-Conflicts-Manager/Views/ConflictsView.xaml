@@ -183,7 +183,7 @@
                 </ListView>
 
                 <Image Grid.Row="2" 
-                       Source="{Binding SelectedFile.Image, Mode=OneWay, UpdateSourceTrigger=PropertyChanged}"
+                       Source="{Binding SelectedImage, Mode=OneWay, UpdateSourceTrigger=PropertyChanged}"
                        VerticalAlignment="Stretch"
                        
                        />

@@ -32,14 +32,10 @@ namespace WolvenKit.Bundles
         TDynArray<UHash> hashes = new TDynArray<UHash>();
         #endregion
 
+        #region Constructors
         public Metadata_Store()
         {
 
-        }
-
-        public Metadata_Store(params Bundle[] Bundles)
-        {
-            Read(Bundles);
         }
 
         public Metadata_Store(string inDir)
@@ -57,12 +53,55 @@ namespace WolvenKit.Bundles
             List<Bundle> bundles = bm.Bundles.ToList().Select(_ => _.Value).ToList();
             Read(bundles.ToArray());
         }
+        #endregion
 
+        #region Public Methods
+        /// <summary>
+        /// Serialize to a file from a list of bundles.
+        /// </summary>
+        /// <param name="outDir"></param>
+        /// <param name="Bundles"></param>
+        public void Write(string outDir)
+        {
+            var filePath = Path.Combine(outDir, "metadata.store");
+            using (var fs = new FileStream(filePath, FileMode.Create))
+            using (var bw = new BinaryWriter(fs))
+            {
+                // header
+                bw.Write(IDString);
+                bw.Write((Int32)Version);
+                bw.Write((Int32)MaxFileSizeInBundle);
+                bw.Write((Int32)MaxFileSIzeInMemory);
+                // string table (file names, individual strings)
+                bw.WriteVLQInt32(FileStringTable.Count);
+                bw.Write(FileStringTable.ToArray());
+                // write UFileInfos
+                fileInfoList.Serialize(bw);
+                // write UFileEntryInfos
+                fileEntryInfoList.Serialize(bw);
+                // write UBundleInfos
+                bundleInfoList.Serialize(bw);
+                // write Buffers
+                bw.WriteVLQInt32(Buffers.Count);
+                foreach (var index in Buffers)
+                    bw.Write((UInt32)index);
+                // write UDirInitInfos
+                dirInitInfoList.Serialize(bw);
+                // write UFileInitInfos
+                fileInitInfoList.Serialize(bw);
+                // write UHashes
+                hashes.Serialize(bw);
+
+            }
+        }
+        #endregion
+
+        #region Private Methods
         /// <summary>
         /// Reads a Metadata_Store from a metadata.store file.
         /// </summary>
         /// <param name="filepath"></param>
-        public void Read(string filepath)
+        private void Read(string filepath)
         {
             Console.WriteLine("Reading: " + filepath);
             using (var br = new BinaryReader(new FileStream(filepath, FileMode.Open)))
@@ -147,7 +186,7 @@ namespace WolvenKit.Bundles
         /// Reads a Metadata_Store from a list of bundles.
         /// </summary>
         /// <param name="Bundles"></param>
-        public void Read(params Bundle[] Bundles)
+        private void Read(params Bundle[] Bundles)
         {
             #region Info
             FileStringTable.Add( 0x00 );
@@ -179,7 +218,7 @@ namespace WolvenKit.Bundles
                 FileStringTable.AddRange(Encoding.UTF8.GetBytes(bundleName));
                 FileStringTable.Add(0x00);
                 
-                foreach (var item in b.ItemsList)
+                foreach (var item in b.Items)
                 {
                     string relFullPath = item.Name;
                     if (_entryNames.Contains(relFullPath))
@@ -300,14 +339,17 @@ namespace WolvenKit.Bundles
                 string bundleName = b.Name;
 
                 BundleItem ffe = _entries.First(_ => ((Bundle)_.Bundle).Name == bundleName);
+                uint dataBlockOffset = b.Header.TocRealSize + 32;
+                uint dataBlockSize = b.Header.Bundlesize - dataBlockOffset;
+
 
                 var bi = new UBundleInfo()
                 {
                     Name = stOffsetDict[bundleName],
                     FirstFileEntry = (UInt32)(_entries.IndexOf(ffe) + 1),
-                    NumBundleEntries = (UInt32)b.ItemsList.Count,
-                    DataBlockSize = b.DataBlockSize, //this is wrong for Buffers //FIXME
-                    DataBlockOffset = b.DataBlockOffset,
+                    NumBundleEntries = (UInt32)b.Items.Count,
+                    DataBlockSize = dataBlockSize, //NOTE this is simply wrong for Buffers in vanilla (always 4096)
+                    DataBlockOffset = dataBlockOffset,
                     BurstDataBlockSize = 0,
                 };
                 bundleInfoList.Add(bi);
@@ -363,69 +405,7 @@ namespace WolvenKit.Bundles
             MaxFileSIzeInMemory = fileInfoList.Select(_ => _.SizeInMemory).ToList().Max();
         }
 
-        /// <summary>
-        /// Serialize to a file from a list of bundles.
-        /// </summary>
-        /// <param name="outDir"></param>
-        /// <param name="Bundles"></param>
-        public void Write(string outDir)
-        {
-            var filePath = Path.Combine(outDir, "metadata.store");
-            using (var fs = new FileStream(filePath, FileMode.Create))
-            using (var bw = new BinaryWriter(fs))
-            {
-                // header
-                bw.Write(IDString);
-                bw.Write((Int32)Version);
-                bw.Write((Int32)MaxFileSizeInBundle);
-                bw.Write((Int32)MaxFileSIzeInMemory);
-                // string table (file names, individual strings)
-                bw.WriteVLQInt32(FileStringTable.Count);
-                bw.Write(FileStringTable.ToArray());
-                // write UFileInfos
-                fileInfoList.Serialize(bw);
-                // write UFileEntryInfos
-                fileEntryInfoList.Serialize(bw);
-                // write UBundleInfos
-                bundleInfoList.Serialize(bw);
-                // write Buffers
-                bw.WriteVLQInt32(Buffers.Count);
-                foreach (var index in Buffers)
-                    bw.Write((UInt32)index);
-                // write UDirInitInfos
-                dirInitInfoList.Serialize(bw);
-                // write UFileInitInfos
-                fileInitInfoList.Serialize(bw);
-                // write UHashes
-                hashes.Serialize(bw);
-
-            }
-        }
-
-
-
-        /// <summary>
-        /// Serialize to a file from a directory.
-        /// </summary>
-        /// <param name="outDir"></param>
-        /// <param name="inDir"></param>
-        public static void Write(string outDir, string inDir)
-        {
-            Metadata_Store store = new Metadata_Store(inDir);
-            store.Write(outDir);
-        }
-
-
-
-        public void cwdump(object obj, BinaryReader br)
-        {
-            Console.WriteLine("Dumping object: " + obj.GetType().Name);
-            Console.WriteLine(ObjectDumper.Dump(obj));
-            Console.WriteLine("Br is at: " + br.BaseStream.Position + "[0x" + br.BaseStream.Position.ToString("X") + "] left: " + ((int)br.BaseStream.Length - br.BaseStream.Position) + "[0x" + ((int)br.BaseStream.Length - br.BaseStream.Position).ToString("X") + "]");
-            Console.WriteLine();
-
-        }
-        public static string ReadCR2WString(BinaryReader br, int len = 0)
+        private static string ReadCR2WString(BinaryReader br, int len = 0)
         {
             if (br.BaseStream.Position >= br.BaseStream.Length)
                 throw new IndexOutOfRangeException();
@@ -448,6 +428,19 @@ namespace WolvenKit.Bundles
             }
             return str;
         }
+        #endregion
+
+        #region Debug
+        public void cwdump(object obj, BinaryReader br)
+        {
+            Console.WriteLine("Dumping object: " + obj.GetType().Name);
+            Console.WriteLine(ObjectDumper.Dump(obj));
+            Console.WriteLine("Br is at: " + br.BaseStream.Position + "[0x" + br.BaseStream.Position.ToString("X") + "] left: " + ((int)br.BaseStream.Length - br.BaseStream.Position) + "[0x" + ((int)br.BaseStream.Length - br.BaseStream.Position).ToString("X") + "]");
+            Console.WriteLine();
+
+        }
+        #endregion
+        
     }
 
     
