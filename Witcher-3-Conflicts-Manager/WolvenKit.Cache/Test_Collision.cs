@@ -21,7 +21,7 @@ namespace WolvenKit.Cache
                 {
                     var ccf = new CollisionCache.CollisionCache(of.FileName);
                     var fd = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop),"CCTest");
-                    ccf.Files.ForEach(x=> x.Extract(Path.Combine(fd,x.Name)));
+                    ccf.Files.ForEach(x=> x.Extract(Path.Combine(fd,x.DepotPath)));
                     CollisionCache.CollisionCache.Write(Directory.GetFiles(fd,"*",SearchOption.AllDirectories).ToList().OrderByDescending(x=> new FileInfo(x).CreationTime).ToList(),of.FileName + "_regenerated");
                     //IntenseTest(of.FileNames.ToList());
                     Console.ReadLine();
@@ -58,8 +58,8 @@ namespace WolvenKit.Cache
                 var sc = new CollisionCache.CollisionCache(old);
                 foreach (var item in sc.Files)
                 {
-                    item.Extract(clonedir + "\\" + item.Name);
-                    Console.WriteLine("Extracted: " + item.Name);
+                    item.Extract(clonedir + "\\" + item.DepotPath);
+                    Console.WriteLine("Extracted: " + item.DepotPath);
                 }
                 var orderedfiles = new List<string>();
                 foreach (var oi in sc.Files)
@@ -67,7 +67,7 @@ namespace WolvenKit.Cache
 
                     foreach (var ni in Directory.GetFiles(clonedir + "\\Collisioncache").ToList().OrderBy(x => new FileInfo(x).CreationTime).ToList())
                     {
-                        if (("Collisioncache\\" + Path.GetFileName(ni)) == oi.Name)
+                        if (("Collisioncache\\" + Path.GetFileName(ni)) == oi.DepotPath)
                             orderedfiles.Add(ni);
                     }
                 }

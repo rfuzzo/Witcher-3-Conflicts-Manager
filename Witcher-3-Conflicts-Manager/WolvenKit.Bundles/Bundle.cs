@@ -77,7 +77,7 @@ namespace WolvenKit.Bundles
             Read(filelist, moddir);
 
             //check for buffers
-            var bufferCount = Items.Where(_ => _.Name.Split('\\').Last().Split('.').Last() == "buffer").ToList().Count;
+            var bufferCount = Items.Where(_ => _.DepotPath.Split('\\').Last().Split('.').Last() == "buffer").ToList().Count;
             if (bufferCount > 0)
             {
                 if (bufferCount == Items.Count)
@@ -97,7 +97,7 @@ namespace WolvenKit.Bundles
             Read(_files);
 
             //check for buffers
-            var bufferCount = Items.Where(_ => _.Name.Split('\\').Last().Split('.').Last() == "buffer").ToList().Count;
+            var bufferCount = Items.Where(_ => _.DepotPath.Split('\\').Last().Split('.').Last() == "buffer").ToList().Count;
             if (bufferCount > 0)
             {
                 if (bufferCount == Items.Count)
@@ -192,7 +192,7 @@ namespace WolvenKit.Bundles
 
                     var strname = Encoding.Default.GetString(br.ReadBytes(0x100));
 
-                    item.Name = strname.Substring(0, strname.IndexOf('\0'));
+                    item.DepotPath = strname.Substring(0, strname.IndexOf('\0'));
                     item.Hash = br.ReadBytes(16);
                     item.Empty = br.ReadUInt32();
                     item.Size = br.ReadUInt32();
@@ -241,7 +241,7 @@ namespace WolvenKit.Bundles
                 {
                     FileAccessor = new BundleAccesor(item.Bundle.FileName, item.PageOffset),
 
-                    Name = item.Name,
+                    DepotPath = item.DepotPath,
                     Hash = item.Hash,
                     Size = item.Size,
                     ZSize = item.ZSize,
@@ -307,7 +307,7 @@ namespace WolvenKit.Bundles
                 {
                     FileAccessor = new FileAccessor(f.FullName),
 
-                    Name = relName,
+                    DepotPath = relName,
                     Hash = hash,
                     Size = size,
                     ZSize = zSize,

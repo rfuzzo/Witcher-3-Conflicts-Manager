@@ -153,7 +153,7 @@ namespace WolvenKit.Cache.CollisionCache
             }
             foreach (var ci in FileNames.Select(fileName => new CollisionCacheItem
             {
-                Name = fileName,
+                DepotPath = fileName,
                 Bundle = this,
                 Unk1 = br.ReadUInt64(),
                 NameOffset = br.ReadUInt64(),
@@ -167,7 +167,7 @@ namespace WolvenKit.Cache.CollisionCache
                 Comtype = br.ReadUInt64()
             }))
             {
-                Console.WriteLine("Filename: " + ci.Name);
+                Console.WriteLine("Filename: " + ci.DepotPath);
                 Files.Add(ci);
             }
         }

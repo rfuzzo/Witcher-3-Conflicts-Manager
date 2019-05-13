@@ -42,10 +42,10 @@ namespace WolvenKit.Cache
 
             foreach (var item in bundle.Items)
             {
-                if (!Items.ContainsKey(GetModFolder(filename) + "\\" + item.Name))
-                    Items.Add(GetModFolder(filename) + "\\" + item.Name, new List<IWitcherFile>());
+                if (!Items.ContainsKey(GetModFolder(filename) + "\\" + item.DepotPath))
+                    Items.Add(GetModFolder(filename) + "\\" + item.DepotPath, new List<IWitcherFile>());
 
-                Items[GetModFolder(filename) + "\\" + item.Name].Add(item);
+                Items[GetModFolder(filename) + "\\" + item.DepotPath].Add(item);
             }
 
             Archives.Add(filename, bundle);
@@ -64,10 +64,10 @@ namespace WolvenKit.Cache
 
             foreach (var item in bundle.Items)
             {
-                if (!Items.ContainsKey(item.Name))
-                    Items.Add(item.Name, new List<IWitcherFile>());
+                if (!Items.ContainsKey(item.DepotPath))
+                    Items.Add(item.DepotPath, new List<IWitcherFile>());
 
-                Items[item.Name].Add(item);
+                Items[item.DepotPath].Add(item);
             }
 
             Archives.Add(filename, bundle);
@@ -199,9 +199,9 @@ namespace WolvenKit.Cache
         /// </summary>
         public void RebuildExtensions()
         {
-            foreach (var file in FileList.Where(file => !Extensions.Contains(file.Name.Split('.').Last())))
+            foreach (var file in FileList.Where(file => !Extensions.Contains(file.DepotPath.Split('.').Last())))
             {
-                Extensions.Add(file.Name.Split('.').Last());
+                Extensions.Add(file.DepotPath.Split('.').Last());
             }
             Extensions.Sort();
         }
@@ -211,7 +211,7 @@ namespace WolvenKit.Cache
         /// </summary>
         public void RebuildAutoCompleteSource()
         {
-            AutocompleteSource.AddRange(FileList.Select(x => GetFileName(x.Name)).Distinct().ToArray());
+            AutocompleteSource.AddRange(FileList.Select(x => GetFileName(x.DepotPath)).Distinct().ToArray());
         }
 
         /// <summary>

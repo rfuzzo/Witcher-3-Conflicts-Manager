@@ -16,7 +16,7 @@ namespace WolvenKit.Cache.CollisionCache
     public class CollisionCacheItem : IWitcherFile
     {
         public IWitcherArchiveType Bundle { get; set; }
-        public string Name { get; set; }
+        public string DepotPath { get; set; }
         public long Size { get; set; }
         public uint ZSize { get; set; }
         public long PageOffset { get; set; }

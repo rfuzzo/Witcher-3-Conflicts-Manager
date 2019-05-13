@@ -32,7 +32,7 @@ namespace WolvenKit.Bundles
     public class BundleItem : IWitcherFile
     {
         #region Info
-        public string Name { get; set; }
+        public string DepotPath { get; set; }
         public byte[] Hash { get; set; }
         public uint Empty { get; set; }
         public long Size { get; set; }
@@ -212,7 +212,7 @@ namespace WolvenKit.Bundles
 
         public void Write(BinaryWriter bw)
         {
-            var name = Encoding.Default.GetBytes(Name).ToArray();
+            var name = Encoding.Default.GetBytes(DepotPath).ToArray();
             if (name.Length > 0x100)
                 name = name.Take(0x100).ToArray();
             if (name.Length < 0x100)

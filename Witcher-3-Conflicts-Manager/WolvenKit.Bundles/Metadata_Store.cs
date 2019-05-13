@@ -15,7 +15,7 @@ namespace WolvenKit.Bundles
     public class Metadata_Store
     {
         #region Info
-        public static byte[] IDString = { 0x03, 0x56, 0x54, 0x4D }; // ".VTM"
+        public const uint VTM = 0x0356544D; // .VTM (le)
         public static Int32 Version = 6;
         public static UInt32 MaxFileSizeInBundle;
         public static UInt32 MaxFileSIzeInMemory;
@@ -68,7 +68,7 @@ namespace WolvenKit.Bundles
             using (var bw = new BinaryWriter(fs))
             {
                 // header
-                bw.Write(IDString);
+                bw.Write(VTM);
                 bw.Write((Int32)Version);
                 bw.Write((Int32)MaxFileSizeInBundle);
                 bw.Write((Int32)MaxFileSIzeInMemory);
@@ -106,7 +106,7 @@ namespace WolvenKit.Bundles
             Console.WriteLine("Reading: " + filepath);
             using (var br = new BinaryReader(new FileStream(filepath, FileMode.Open)))
             {
-                if (!br.ReadBytes(4).SequenceEqual(IDString))
+                if (br.ReadUInt32() != VTM)
                     throw new InvalidDataException("Wrong Magic when reading the metadata.store file!");
                 Version = br.ReadInt32();
                 MaxFileSizeInBundle = br.ReadUInt32();
@@ -220,7 +220,7 @@ namespace WolvenKit.Bundles
                 
                 foreach (var item in b.Items)
                 {
-                    string relFullPath = item.Name;
+                    string relFullPath = item.DepotPath;
                     if (_entryNames.Contains(relFullPath))
                         continue;
 
@@ -297,7 +297,7 @@ namespace WolvenKit.Bundles
                 };
                 fileInitInfoList.Add(fii);
 
-                var fullname = _entries.First(_ => _.Name.Split('\\').Last() == fi.Name).Name;
+                var fullname = _entries.First(_ => _.DepotPath.Split('\\').Last() == fi.Name).DepotPath;
                 UInt64 hash = (UInt64)FNV1a.HashFNV1a64(fullname);
                 var h = new UHash()
                 {
@@ -364,15 +364,15 @@ namespace WolvenKit.Bundles
 
                 UInt32 bufferid = 0;
                 UInt32 hasbuffer = 0;
-                if (_bufferNames.Contains(e.Name))
+                if (_bufferNames.Contains(e.DepotPath))
                 {
                     hasbuffer = 1;
-                    bufferid = (uint)_bufferNames.IndexOf(e.Name);
+                    bufferid = (uint)_bufferNames.IndexOf(e.DepotPath);
                 }
 
                 var fi = new UFileInfo()
                 {
-                    StringTableNameOffset = stOffsetDict[e.Name],
+                    StringTableNameOffset = stOffsetDict[e.DepotPath],
                     PathHash = 0, //FIXME this is always 0...
                     SizeInBundle = e.ZSize,
                     SizeInMemory = (UInt32)e.Size,
@@ -397,7 +397,7 @@ namespace WolvenKit.Bundles
             #endregion
 
             #region Buffers
-            foreach (var buffer in _entries.Where(_ => _.Name.Split('.')?.Last() == "buffer"))
+            foreach (var buffer in _entries.Where(_ => _.DepotPath.Split('.')?.Last() == "buffer"))
                 Buffers.Add(_entries.IndexOf(buffer) + 1);
             #endregion
 

@@ -145,7 +145,7 @@ namespace WolvenKit.Cache
                 //write Namestable
                 foreach (var item in Items)
                 {
-                    bw.WriteCR2WString(item.Name);
+                    bw.WriteCR2WString(item.DepotPath);
                 }
 
                 //write Infotable
@@ -268,7 +268,7 @@ namespace WolvenKit.Cache
                 {
                     var ti = new TextureCacheItem(this)
                     {
-                        Name = Names[i],
+                        DepotPath = Names[i],
                         ParentFile = FileName,
                         Hash = br.ReadInt32(),
                         /*-------------TextureCacheEntryBase---------------*/
@@ -327,7 +327,7 @@ namespace WolvenKit.Cache
             {
                 TextureCacheItem f = _files[i];
                 stringTable.Add( i, stoffset);
-                stoffset += f.Name.Length + 1;
+                stoffset += f.DepotPath.Length + 1;
 
                 //mipmaps
                 relMipsTable.Add(i ,f.GetMipsOffsettable());
@@ -360,7 +360,7 @@ namespace WolvenKit.Cache
                     CachedZSizeNoMips = item.CachedZSizeNoMips,
                     CachedSizeNoMips = item.CachedSizeNoMips,
 
-                    Name = item.Name,
+                    DepotPath = item.DepotPath,
                     Hash = item.Hash,
                     /*-------------TextureCacheEntryBase---------------*/
                     PathStringIndex = stringTable[i],
@@ -434,7 +434,7 @@ namespace WolvenKit.Cache
 
                 TextureCacheItem newItem = new TextureCacheItem(this)
                 {
-                    Name = GetRelativePath(f.FullName, f.Directory.FullName),
+                    DepotPath = GetRelativePath(f.FullName, f.Directory.FullName),
                     Hash = 0, //FIXME
 
                     /*-------------TextureCacheEntryBase---------------*/

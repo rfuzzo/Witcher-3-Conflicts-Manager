@@ -38,7 +38,7 @@ namespace WolvenKit.Bundles
 
             var bundle = new Bundle(filename);
 
-            Dictionary<string, BundleItem> itemsDict = bundle.Items.ToDictionary(_ => _.Name, _ => _);
+            Dictionary<string, BundleItem> itemsDict = bundle.Items.ToDictionary(_ => _.DepotPath, _ => _);
             foreach (var item in itemsDict)
             {
                 if (!Items.ContainsKey(GetModFolder(filename) + "\\" + item.Key))
@@ -61,7 +61,7 @@ namespace WolvenKit.Bundles
 
             var bundle = new Bundle(filename);
 
-            Dictionary<string, BundleItem> itemsDict = bundle.Items.ToDictionary(_ => _.Name, _ => _);
+            Dictionary<string, BundleItem> itemsDict = bundle.Items.ToDictionary(_ => _.DepotPath, _ => _);
             foreach (var item in itemsDict)
             {
                 if (!Items.ContainsKey(item.Key))
@@ -198,9 +198,9 @@ namespace WolvenKit.Bundles
         /// </summary>
         public void RebuildExtensions()
         {
-            foreach (var file in FileList.Where(file => !Extensions.Contains(file.Name.Split('.').Last())))
+            foreach (var file in FileList.Where(file => !Extensions.Contains(file.DepotPath.Split('.').Last())))
             {
-                Extensions.Add(file.Name.Split('.').Last());
+                Extensions.Add(file.DepotPath.Split('.').Last());
             }
             Extensions.Sort();
         }
@@ -210,7 +210,7 @@ namespace WolvenKit.Bundles
         /// </summary>
         public void RebuildAutoCompleteSource()
         {
-            AutocompleteSource.AddRange(FileList.Select(x => GetFileName(x.Name)).Distinct().ToArray());
+            AutocompleteSource.AddRange(FileList.Select(x => GetFileName(x.DepotPath)).Distinct().ToArray());
         }
 
         /// <summary>

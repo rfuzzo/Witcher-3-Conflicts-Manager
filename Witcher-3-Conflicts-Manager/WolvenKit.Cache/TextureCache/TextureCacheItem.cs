@@ -16,7 +16,7 @@ namespace WolvenKit.Cache
     {
         #region Info
         public string DateString { get; set; }
-        public string Name { get; set; }
+        public string DepotPath { get; set; }
         public Int32 Hash;
         public Int32 PathStringIndex;
         public long PageOffset { get; set; }

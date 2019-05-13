@@ -10,7 +10,7 @@ namespace WolvenKit.Common
     public interface IWitcherFile
     {
         IWitcherArchiveType Bundle { get; set; }
-        string Name { get; set; }
+        string DepotPath { get; set; }
         long Size { get; set; }
         uint ZSize { get; set; }
         long PageOffset { get; set; }
